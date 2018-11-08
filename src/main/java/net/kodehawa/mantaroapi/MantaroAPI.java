@@ -204,10 +204,10 @@ public class MantaroAPI {
                 if(patronObject != null) {
                     final String discordUserId = patronObject.get("attributes").getAsJsonObject().get("social_connections")
                             .getAsJsonObject().get("discord").getAsJsonObject().get("user_id").getAsString();
+                    double pledgeAmountDollars = pledgeAmountCents / 100D;
 
                     logger.info("Recv. Patreon event '{}' for Discord user '{}' with amount ${}", patreonEvent,
-                            discordUserId, String.format("%.2f", pledgeAmountCents / 100D));
-                    double pledgeAmountDollars = pledgeAmountCents / 100D;
+                            discordUserId, String.format("%.2f", pledgeAmountDollars));
                     switch(patreonEvent) {
                         case "pledges:create":
                             // pledge created with cents
