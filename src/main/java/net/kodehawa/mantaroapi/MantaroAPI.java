@@ -16,30 +16,37 @@
 
 package net.kodehawa.mantaroapi;
 
+import com.google.gson.Gson;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.io.IOUtils;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import spark.Spark;
 
-import java.io.InputStream;
+import java.io.*;
 import java.nio.charset.Charset;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.security.MessageDigest;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static spark.Spark.*;
 
 public class MantaroAPI {
     private final Logger logger = LoggerFactory.getLogger(MantaroAPI.class);
-    private final int version = 1;
+    private final String version = "2.0.1";
     private final List<PokemonData> pokemon = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
     private final Random r = new Random();
     private final JSONObject hush;
+    private final JsonParser parser = new JsonParser();
+    private String patreonSecret;
+    private int port;
 
     public static void main(String[] args) {
         try {
@@ -51,13 +58,26 @@ public class MantaroAPI {
     }
 
     private MantaroAPI() throws Exception {
-        logger.info("Starting up Mantaro API...");
-        logger.info("Reading data from filesystem");
+        logger.info("\n" +
+                "||        ______ ___  ___            _                 ______       _    ______        ||\n" +
+                "||       / / / / |  \\/  |           | |                | ___ \\     | |   \\ \\ \\ \\       ||\n" +
+                "||      / / / /  | .  . | __ _ _ __ | |_ __ _ _ __ ___ | |_/ / ___ | |_   \\ \\ \\ \\      ||\n" +
+                "||     < < < <   | |\\/| |/ _` | '_ \\| __/ _` | '__/ _ \\| ___ \\/ _ \\| __|   > > > >     ||\n" +
+                "||      \\ \\ \\ \\  | |  | | (_| | | | | || (_| | | | (_) | |_/ / (_) | |_   / / / /      ||\n" +
+                "||       \\_\\_\\_\\ \\_|  |_/\\__,_|_| |_|\\__\\__,_|_|  \\___/\\____/ \\___/ \\__| /_/_/_/       ||\n" +
+                "\n" +
+                ":: Mantaro API {} :: Made by Kodehawa ::\n", version);
+
+        try {
+            loadConfig();
+        } catch (IOException e) {
+            logger.error("An error occurred while loading the configuration file!", e);
+            System.exit(100);
+        }
+
+        logger.info("Reading pokemon data << pokemon_data.txt");
         InputStream stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
         List<String> pokemonLines = IOUtils.readLines(stream, Charset.forName("UTF-8"));
-
-        //---------------
-        logger.info("Reading pokemon data");
         for (String s : pokemonLines) {
             String[] data = s.replace("\r", "").split("`");
             String image = data[0];
@@ -65,14 +85,12 @@ public class MantaroAPI {
             pokemon.add(new PokemonData(names[0], image, names));
         }
 
-        //---------------
-        logger.info("Reading hush data");
+        logger.info("Reading hush data << hush.json");
         InputStream hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
         List<String> hushLines = IOUtils.readLines(hushStream, Charset.forName("UTF-8"));
         hush = new JSONObject(hushLines.stream().collect(Collectors.joining("")));
 
-        //---------------
-        logger.info("Reading splashes data");
+        logger.info("Reading splashes data << splashes.txt");
         InputStream splashesStream = getClass().getClassLoader().getResourceAsStream("splashes.txt");
         List<String> splashesLines = IOUtils.readLines(splashesStream, Charset.forName("UTF-8"));
         for (String s : splashesLines) {
@@ -81,16 +99,14 @@ public class MantaroAPI {
 
         splashes.removeIf(s -> s == null || s.isEmpty());
 
-        //Set port.
-        port(5874);
-
-        //Init webserver.
+        port(port);
         Spark.init();
+
         get("/mantaroapi/ping", (req, res) -> "pong! (V:" + version + ")");
 
         get("/mantaroapi/pokemon", (req, res) -> {
             try {
-                logger.debug("Retrieving pokemon data.");
+                logger.debug("Retrieving pokemon data << pokemon_data.txt");
                 PokemonData pokemonData = pokemon.get(r.nextInt(pokemon.size()));
                 String image = pokemonData.getUrl();
                 String[] names = pokemonData.getNames();
@@ -122,6 +138,113 @@ public class MantaroAPI {
             return new JSONObject().put("hush", answer);
         });
 
-        logger.info("Mantaro API 1.0 up.");
+        //Handle patreon webhooks.
+        post("/mantaroapi/patreon", (req, res) -> {
+            final String body = req.body();
+            final String signature = req.headers("X-Patreon-Signature");
+
+            if(signature == null) {
+                logger.warn("Patreon webhook had no signature! Probably fake / invalid request.");
+                logger.warn("Patreon webhook data: " + req.body());
+                halt(401);
+                return "";
+            }
+
+            final String hmac = HmacUtils.hmacMd5Hex(patreonSecret, body);
+            if(!MessageDigest.isEqual(hmac.getBytes(), signature.getBytes())) {
+                logger.warn("Patreon webhook signature was invalid! Probably fake / invalid request.");
+                halt(401);
+                return "";
+            } else {
+                logger.info("Accepted Patreon signed data: " + body);
+            }
+
+            // Events are pledges:{create,update,delete}
+            final String patreonEvent = req.headers("X-Patreon-Event");
+            final JsonObject json = parser.parse(body).getAsJsonObject();
+
+            //what the fuck
+            final String patronId = json.get("data").getAsJsonObject().get("relationships").getAsJsonObject().get("patron")
+                    .getAsJsonObject().get("data").getAsJsonObject().get("id").getAsString();
+
+            final Iterator<JsonElement> included = json.get("included").getAsJsonArray().iterator();
+            final long pledgeAmountCents = json.get("data").getAsJsonObject().get("attributes").getAsJsonObject()
+                    .get("amount_cents").getAsLong();
+            JsonObject patronObject = null;
+
+            while(included.hasNext()) {
+                final JsonElement next = included.next();
+                final JsonObject includedObject = next.getAsJsonObject();
+                if(includedObject.get("id").getAsString().equals(patronId)) {
+                    patronObject = includedObject;
+                    break;
+                }
+            }
+            try {
+                if(patronObject != null) {
+                    final String discordUserId = patronObject.get("attributes").getAsJsonObject().get("social_connections")
+                            .getAsJsonObject().get("discord").getAsJsonObject().get("user_id").getAsString();
+
+                    logger.info("Recv. Patreon event '{}' for Discord user '{}' with amount ${}", patreonEvent,
+                            discordUserId, String.format("%.2f", pledgeAmountCents / 100D));
+                    switch(patreonEvent) {
+                        case "pledges:create":
+                            // pledge created with cents
+                            break;
+                        case "pledges:update":
+                            // pledge updated to cents
+                            break;
+                        case "pledges:delete":
+                            //api.redis(jedis -> jedis.hdel("donors", discordUserId));
+                            break;
+                        default:
+                            logger.info("Got unknown patreon event for Discord user: " + patreonEvent);
+                            break;
+                    }
+                }
+            } catch(final Throwable ignored) {}
+
+            return "{\"status\":\"ok\"}";
+        });
+
+        post("/mantaroapi/patreon/check", (req, res) -> {
+            //connect to redis?
+            return "";
+        });
+    }
+
+    private void loadConfig() throws IOException{
+        logger.info("Loading configuration file >> api.json");
+        File config = new File("api.json");
+        if(!config.exists()) {
+            JSONObject obj = new JSONObject();
+            obj.put("patreonSecret", "secret");
+            obj.put("port", 5874);
+
+            FileOutputStream fos = new FileOutputStream(config);
+            ByteArrayInputStream bais = new ByteArrayInputStream(obj.toString(4).getBytes(Charset.defaultCharset()));
+            byte[] buffer = new byte[1024];
+            int read;
+            while((read = bais.read(buffer)) != -1)
+                fos.write(buffer, 0, read);
+            fos.close();
+            logger.error("Could not find config file at " + config.getAbsolutePath() + ", creating a new one...");
+            logger.error("Generated new config file at " + config.getAbsolutePath() + ".");
+            logger.error("Please, fill the file with valid properties.");
+            System.exit(-1);
+        }
+
+        JSONObject obj; {
+            FileInputStream fis = new FileInputStream(config);
+            byte[] buffer = new byte[1024];
+            int read;
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            while((read = fis.read(buffer)) != -1)
+                baos.write(buffer, 0, read);
+            obj = new JSONObject(new String(baos.toByteArray(), Charset.defaultCharset()));
+        }
+
+        patreonSecret = obj.getString("patreonSecret");
+        port = obj.getInt("port");
     }
 }
