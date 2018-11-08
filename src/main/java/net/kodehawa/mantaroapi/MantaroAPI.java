@@ -51,8 +51,8 @@ public class MantaroAPI {
     private String patreonSecret;
     private int port;
 
-    final JedisPoolConfig poolConfig = buildPoolConfig();
-    JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
+    private final JedisPoolConfig poolConfig = buildPoolConfig();
+    private JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
     private JedisPoolConfig buildPoolConfig() {
         final JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(128);
@@ -247,7 +247,7 @@ public class MantaroAPI {
     }
 
     private void loadConfig() throws IOException{
-        logger.info("Loading configuration file >> api.json");
+        logger.info("Loading configuration file << api.json");
         File config = new File("api.json");
         if(!config.exists()) {
             JSONObject obj = new JSONObject();
@@ -283,6 +283,7 @@ public class MantaroAPI {
 
     private <T> T redis(Function<Jedis, T> consumer) {
         try(Jedis jedis = jedisPool.getResource()) {
+            logger.debug("Accessing redis instance");
             return consumer.apply(jedis);
         }
     }
