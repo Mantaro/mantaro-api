@@ -16,23 +16,27 @@
 
 package net.kodehawa.mantaroapi;
 
-import com.google.gson.Gson;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.io.IOUtils;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import redis.clients.jedis.Jedis;
+import redis.clients.jedis.JedisPool;
+import redis.clients.jedis.JedisPoolConfig;
 import spark.Spark;
 
 import java.io.*;
 import java.nio.charset.Charset;
 import java.security.MessageDigest;
+import java.time.Duration;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static spark.Spark.*;
@@ -47,6 +51,23 @@ public class MantaroAPI {
     private final JsonParser parser = new JsonParser();
     private String patreonSecret;
     private int port;
+
+    final JedisPoolConfig poolConfig = buildPoolConfig();
+    JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
+    private JedisPoolConfig buildPoolConfig() {
+        final JedisPoolConfig poolConfig = new JedisPoolConfig();
+        poolConfig.setMaxTotal(128);
+        poolConfig.setMaxIdle(128);
+        poolConfig.setMinIdle(16);
+        poolConfig.setTestOnBorrow(true);
+        poolConfig.setTestOnReturn(true);
+        poolConfig.setTestWhileIdle(true);
+        poolConfig.setMinEvictableIdleTimeMillis(Duration.ofSeconds(60).toMillis());
+        poolConfig.setTimeBetweenEvictionRunsMillis(Duration.ofSeconds(30).toMillis());
+        poolConfig.setNumTestsPerEvictionRun(3);
+        poolConfig.setBlockWhenExhausted(true);
+        return poolConfig;
+    }
 
     public static void main(String[] args) {
         try {
@@ -102,7 +123,7 @@ public class MantaroAPI {
         port(port);
         Spark.init();
 
-        get("/mantaroapi/ping", (req, res) -> "pong! (V:" + version + ")");
+        get("/mantaroapi/ping", (req, res) -> new JSONObject().put("status", "ok").put("version", version).toString());
 
         get("/mantaroapi/pokemon", (req, res) -> {
             try {
@@ -187,15 +208,19 @@ public class MantaroAPI {
 
                     logger.info("Recv. Patreon event '{}' for Discord user '{}' with amount ${}", patreonEvent,
                             discordUserId, String.format("%.2f", pledgeAmountCents / 100D));
+                    double pledgeAmountDollars = pledgeAmountCents / 100D;
                     switch(patreonEvent) {
                         case "pledges:create":
                             // pledge created with cents
+                            redis(jedis -> jedis.hset("donors", discordUserId, String.valueOf(pledgeAmountDollars)));
                             break;
                         case "pledges:update":
                             // pledge updated to cents
+                            //just set it again
+                            redis(jedis -> jedis.hset("donors", discordUserId, String.valueOf(pledgeAmountDollars)));
                             break;
                         case "pledges:delete":
-                            //api.redis(jedis -> jedis.hdel("donors", discordUserId));
+                            redis(jedis -> jedis.hdel("donors", discordUserId));
                             break;
                         default:
                             logger.info("Got unknown patreon event for Discord user: " + patreonEvent);
@@ -208,8 +233,17 @@ public class MantaroAPI {
         });
 
         post("/mantaroapi/patreon/check", (req, res) -> {
-            //connect to redis?
-            return "";
+            JSONObject obj = new  JSONObject(req.body());
+            String id = obj.getString("id");
+
+            return redis(jedis -> {
+                if(!jedis.hexists("donors", id)) {
+                    return new JSONObject().put("active", false).put("amount", 0).toString();
+                }
+
+                String amount = jedis.hget("donors", id);
+                return new JSONObject().put("active", true).put("amount", amount).toString();
+            });
         });
     }
 
@@ -246,5 +280,11 @@ public class MantaroAPI {
 
         patreonSecret = obj.getString("patreonSecret");
         port = obj.getInt("port");
+    }
+
+    private <T> T redis(Function<Jedis, T> consumer) {
+        try(Jedis jedis = jedisPool.getResource()) {
+            return consumer.apply(jedis);
+        }
     }
 }
