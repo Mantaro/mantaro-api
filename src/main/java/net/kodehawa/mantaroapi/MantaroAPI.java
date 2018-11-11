@@ -19,6 +19,8 @@ package net.kodehawa.mantaroapi;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.patreon.PatreonAPI;
+import com.patreon.models.Pledge;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONException;
@@ -50,6 +52,7 @@ public class MantaroAPI {
     private final JsonParser parser = new JsonParser();
     private String patreonSecret;
     private int port;
+    private String patreonToken;
 
     private final JedisPoolConfig poolConfig = buildPoolConfig();
     private JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
@@ -93,6 +96,32 @@ public class MantaroAPI {
         } catch (IOException e) {
             logger.error("An error occurred while loading the configuration file!", e);
             System.exit(100);
+        }
+
+        try {
+            PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
+            List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
+            System.out.println("Total pledges: " + pledges.size());
+
+            for(Pledge pledge : pledges) {
+                if(pledge.getDeclinedSince() == null) {
+                    String discordId = pledge.getPatron().getDiscordId();
+
+                    //come on guys, use integrations
+                    if(discordId != null) {
+                        double amountDollars = pledge.getAmountCents() / 100D;
+                        logger.info("Processed pledge for {} for {} (dollars)", discordId, amountDollars);
+                        redis(jedis -> {
+                            if(jedis.hexists("donators", discordId))
+                                return null;
+
+                            return jedis.hset("donators", discordId, String.valueOf(amountDollars));
+                        });
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
         logger.info("Reading pokemon data << pokemon_data.txt");
@@ -277,8 +306,9 @@ public class MantaroAPI {
             obj = new JSONObject(new String(baos.toByteArray(), Charset.defaultCharset()));
         }
 
-        patreonSecret = obj.getString("patreonSecret");
+        patreonSecret = obj.getString("patreon_secret");
         port = obj.getInt("port");
+        patreonToken = obj.getString("patreon_token");
     }
 
     private <T> T redis(Function<Jedis, T> consumer) {
