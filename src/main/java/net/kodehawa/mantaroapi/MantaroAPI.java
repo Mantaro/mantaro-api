@@ -53,6 +53,7 @@ public class MantaroAPI {
     private String patreonSecret;
     private int port;
     private String patreonToken;
+    private boolean checkOldPatrons;
 
     private final JedisPoolConfig poolConfig = buildPoolConfig();
     private JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
@@ -98,30 +99,35 @@ public class MantaroAPI {
             System.exit(100);
         }
 
-        try {
-            PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
-            List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
-            System.out.println("Total pledges: " + pledges.size());
+        if(checkOldPatrons) {
+            try {
+                PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
+                List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
+                System.out.println("Total pledges: " + pledges.size());
 
-            for(Pledge pledge : pledges) {
-                if(pledge.getDeclinedSince() == null) {
-                    String discordId = pledge.getPatron().getDiscordId();
+                for(Pledge pledge : pledges) {
+                    String declinedSince = pledge.getDeclinedSince();
+                    //logger.info("Pledge email {}: declined: {}, discordId {}", pledge.getPatron().getEmail(), declinedSince, discordId);
 
-                    //come on guys, use integrations
-                    if(discordId != null) {
-                        double amountDollars = pledge.getAmountCents() / 100D;
-                        logger.info("Processed pledge for {} for {} (dollars)", discordId, amountDollars);
-                        redis(jedis -> {
-                            if(jedis.hexists("donators", discordId))
-                                return null;
+                    if(declinedSince == null) {
+                        String discordId = pledge.getPatron().getDiscordId();
 
-                            return jedis.hset("donators", discordId, String.valueOf(amountDollars));
-                        });
+                        //come on guys, use integrations
+                        if(discordId != null) {
+                            double amountDollars = pledge.getAmountCents() / 100D;
+                            logger.info("Processed pledge for {} for {} (dollars)", discordId, amountDollars);
+                            redis(jedis -> {
+                                if(jedis.hexists("donators", discordId))
+                                    return null;
+
+                                return jedis.hset("donators", discordId, String.valueOf(amountDollars));
+                            });
+                        }
                     }
                 }
+            } catch (Exception e) {
+                e.printStackTrace();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
         }
 
         logger.info("Reading pokemon data << pokemon_data.txt");
@@ -240,15 +246,15 @@ public class MantaroAPI {
                     switch(patreonEvent) {
                         case "pledges:create":
                             // pledge created with cents
-                            redis(jedis -> jedis.hset("donors", discordUserId, String.valueOf(pledgeAmountDollars)));
+                            redis(jedis -> jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars)));
                             break;
                         case "pledges:update":
                             // pledge updated to cents
                             //just set it again
-                            redis(jedis -> jedis.hset("donors", discordUserId, String.valueOf(pledgeAmountDollars)));
+                            redis(jedis -> jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars)));
                             break;
                         case "pledges:delete":
-                            redis(jedis -> jedis.hdel("donors", discordUserId));
+                            redis(jedis -> jedis.hdel("donators", discordUserId));
                             break;
                         default:
                             logger.info("Got unknown patreon event for Discord user: " + patreonEvent);
@@ -263,14 +269,22 @@ public class MantaroAPI {
         post("/mantaroapi/patreon/check", (req, res) -> {
             JSONObject obj = new  JSONObject(req.body());
             String id = obj.getString("id");
+            String placeholder = new JSONObject().put("active", false).put("amount", 0).toString();
 
             return redis(jedis -> {
-                if(!jedis.hexists("donors", id)) {
-                    return new JSONObject().put("active", false).put("amount", 0).toString();
-                }
+                try {
+                    if(!jedis.hexists("donators", id)) {
+                        return placeholder;
+                    }
 
-                String amount = jedis.hget("donors", id);
-                return new JSONObject().put("active", true).put("amount", amount).toString();
+                    String amount = jedis.hget("donators", id);
+
+                    return new JSONObject().put("active", true).put("amount", amount).toString();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                    halt(500);
+                    return placeholder;
+                }
             });
         });
     }
@@ -282,6 +296,7 @@ public class MantaroAPI {
             JSONObject obj = new JSONObject();
             obj.put("patreonSecret", "secret");
             obj.put("port", 5874);
+            obj.put("check", true);
 
             FileOutputStream fos = new FileOutputStream(config);
             ByteArrayInputStream bais = new ByteArrayInputStream(obj.toString(4).getBytes(Charset.defaultCharset()));
@@ -309,6 +324,7 @@ public class MantaroAPI {
         patreonSecret = obj.getString("patreon_secret");
         port = obj.getInt("port");
         patreonToken = obj.getString("patreon_token");
+        checkOldPatrons = obj.getBoolean("check");
     }
 
     private <T> T redis(Function<Jedis, T> consumer) {

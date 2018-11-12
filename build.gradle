@@ -29,7 +29,7 @@ tasks.withType(JavaCompile) {
 dependencies {
     compile 'com.sparkjava:spark-core:2.4'
     compile 'ch.qos.logback:logback-classic:1.2.3'
-    compile 'com.github.adamint:patreon-java:-SNAPSHOT'
+    compile 'com.github.adamint:patreon-java:417322b'
     compile group: 'org.json', name: 'json', version: '20171018'
     compile group: 'commons-io', name: 'commons-io', version: '2.4'
     compile group: 'commons-codec', name: 'commons-codec', version: '1.11'
