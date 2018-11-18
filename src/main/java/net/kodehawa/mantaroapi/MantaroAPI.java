@@ -295,6 +295,7 @@ public class MantaroAPI {
         if(!config.exists()) {
             JSONObject obj = new JSONObject();
             obj.put("patreon_secret", "secret");
+            obj.put("patreon_token", "token");
             obj.put("port", 5874);
             obj.put("check", true);
 
