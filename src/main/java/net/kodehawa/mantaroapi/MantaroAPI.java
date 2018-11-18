@@ -294,7 +294,7 @@ public class MantaroAPI {
         File config = new File("api.json");
         if(!config.exists()) {
             JSONObject obj = new JSONObject();
-            obj.put("patreonSecret", "secret");
+            obj.put("patreon_secret", "secret");
             obj.put("port", 5874);
             obj.put("check", true);
 
