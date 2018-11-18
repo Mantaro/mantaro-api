@@ -115,7 +115,7 @@ public class MantaroAPI {
                         //come on guys, use integrations
                         if(discordId != null) {
                             double amountDollars = pledge.getAmountCents() / 100D;
-                            logger.info("Processed pledge for {} for {} (dollars)", discordId, amountDollars);
+                            logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
                             redis(jedis -> {
                                 if(jedis.hexists("donators", discordId))
                                     return null;
