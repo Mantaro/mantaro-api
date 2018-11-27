@@ -211,7 +211,9 @@ public class MantaroAPI {
                 halt(401);
                 return "";
             } else {
-                logger.info("Accepted Patreon signed data: " + body);
+                logger.info("Accepted Patreon signed data");
+                logger.debug("Accepted Patreon signed data <- {}", body);
+
             }
 
             // Events are pledges:{create,update,delete}
@@ -260,8 +262,12 @@ public class MantaroAPI {
                             logger.info("Got unknown patreon event for Discord user: " + patreonEvent);
                             break;
                     }
+                } else {
+                    logger.info("Null patron object?");
                 }
-            } catch(final Throwable ignored) {}
+            } catch(final Exception e) {
+                e.printStackTrace();
+            }
 
             return "{\"status\":\"ok\"}";
         });
