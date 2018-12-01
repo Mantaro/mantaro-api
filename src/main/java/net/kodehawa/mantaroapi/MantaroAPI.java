@@ -186,7 +186,7 @@ public class MantaroAPI {
             post("/patreon/check", (req, res) -> {
                 JSONObject obj = new  JSONObject(req.body());
                 String id = obj.getString("id");
-                String placeholder = new JSONObject().put("active", false).put("amount", 0).toString();
+                String placeholder = new JSONObject().put("active", false).put("amount", "0").toString();
 
                 return redis(jedis -> {
                     try {
