@@ -100,25 +100,25 @@ public class MantaroAPI {
             System.exit(100);
         }
 
-        if(checkOldPatrons) {
+        if (checkOldPatrons) {
             try {
                 PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
                 List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
                 System.out.println("Total pledges: " + pledges.size());
 
-                for(Pledge pledge : pledges) {
+                for (Pledge pledge : pledges) {
                     String declinedSince = pledge.getDeclinedSince();
                     //logger.info("Pledge email {}: declined: {}, discordId {}", pledge.getPatron().getEmail(), declinedSince, discordId);
 
-                    if(declinedSince == null) {
+                    if (declinedSince == null) {
                         String discordId = pledge.getPatron().getDiscordId();
 
                         //come on guys, use integrations
-                        if(discordId != null) {
+                        if (discordId != null) {
                             double amountDollars = pledge.getAmountCents() / 100D;
                             logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
                             redis(jedis -> {
-                                if(jedis.hexists("donators", discordId))
+                                if (jedis.hexists("donators", discordId))
                                     return null;
 
                                 return jedis.hset("donators", discordId, String.valueOf(amountDollars));
@@ -154,52 +154,72 @@ public class MantaroAPI {
         }
 
         splashes.removeIf(s -> s == null || s.isEmpty());
-
         port(port);
         Spark.init();
 
         get("/mantaroapi/ping", (req, res) -> new JSONObject().put("status", "ok").put("version", version).toString());
 
-        get("/mantaroapi/pokemon", (req, res) -> {
-            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+        path("/mantaroapi/bot", () -> {
+            //Spark why does this work like this but not without an argument, I'M LITERALLY GIVING YOU AN EMPTY STRING
+            before("", (request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+            before("/*", (request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
 
-            try {
-                logger.debug("Retrieving pokemon data << pokemon_data.txt");
-                PokemonData pokemonData = pokemon.get(r.nextInt(pokemon.size()));
-                String image = pokemonData.getUrl();
-                String[] names = pokemonData.getNames();
-                String name = pokemonData.getName();
-                return new JSONObject()
-                        .put("name", name)
-                        .put("names", names)
-                        .put("image", image)
-                        .toString();
-            } catch (Exception e) {
-                return new JSONObject().put("error", e.getMessage()).toString();
-            }
-        });
+            get("/pokemon", (req, res) -> {
+                try {
+                    logger.debug("Retrieving pokemon data << pokemon_data.txt");
+                    PokemonData pokemonData = pokemon.get(r.nextInt(pokemon.size()));
+                    String image = pokemonData.getUrl();
+                    String[] names = pokemonData.getNames();
+                    String name = pokemonData.getName();
+                    return new JSONObject()
+                            .put("name", name)
+                            .put("names", names)
+                            .put("image", image)
+                            .toString();
+                } catch (Exception e) {
+                    return new JSONObject().put("error", e.getMessage()).toString();
+                }
+            });
 
-        get("/mantaroapi/splashes/random", (req, res) -> {
-            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+            get("/splashes/random", (req, res) -> new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString());
 
-            return new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString();
-        });
+            post("/patreon/check", (req, res) -> {
+                JSONObject obj = new  JSONObject(req.body());
+                String id = obj.getString("id");
+                String placeholder = new JSONObject().put("active", false).put("amount", 0).toString();
 
-        post("/mantaroapi/hush", (req, res) -> {
-            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+                return redis(jedis -> {
+                    try {
+                        if(!jedis.hexists("donators", id)) {
+                            return placeholder;
+                        }
 
-            JSONObject obj = new  JSONObject(req.body());
-            String name = obj.getString("name");
-            String type = obj.getString("type").toLowerCase();
+                        String amount = jedis.hget("donators", id);
 
-            String answer;
-            try {
-                answer = hush.getJSONObject(type).getString(name);
-            } catch (JSONException e) {
-                answer = "NONE";
-            }
+                        return new JSONObject().put("active", true).put("amount", amount).toString();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        halt(500);
+                        return placeholder;
+                    }
+                });
+            });
 
-            return new JSONObject().put("hush", answer);
+            post("/hush", (req, res) -> {
+                JSONObject obj = new  JSONObject(req.body());
+                String name = obj.getString("name");
+                String type = obj.getString("type").toLowerCase();
+
+                String answer;
+                try {
+                    answer = hush.getJSONObject(type).getString(name);
+                } catch (JSONException e) {
+                    answer = "NONE";
+                }
+
+                return new JSONObject().put("hush", answer);
+            });
+
         });
 
         //Handle patreon webhooks.
@@ -279,30 +299,6 @@ public class MantaroAPI {
             }
 
             return "{\"status\":\"ok\"}";
-        });
-
-        post("/mantaroapi/patreon/check", (req, res) -> {
-            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
-
-            JSONObject obj = new  JSONObject(req.body());
-            String id = obj.getString("id");
-            String placeholder = new JSONObject().put("active", false).put("amount", 0).toString();
-
-            return redis(jedis -> {
-                try {
-                    if(!jedis.hexists("donators", id)) {
-                        return placeholder;
-                    }
-
-                    String amount = jedis.hget("donators", id);
-
-                    return new JSONObject().put("active", true).put("amount", amount).toString();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                    halt(500);
-                    return placeholder;
-                }
-            });
         });
     }
 
