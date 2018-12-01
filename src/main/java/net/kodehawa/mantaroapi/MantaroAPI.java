@@ -54,6 +54,7 @@ public class MantaroAPI {
     private int port;
     private String patreonToken;
     private boolean checkOldPatrons;
+    private String auth;
 
     private final JedisPoolConfig poolConfig = buildPoolConfig();
     private JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
@@ -160,6 +161,8 @@ public class MantaroAPI {
         get("/mantaroapi/ping", (req, res) -> new JSONObject().put("status", "ok").put("version", version).toString());
 
         get("/mantaroapi/pokemon", (req, res) -> {
+            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+
             try {
                 logger.debug("Retrieving pokemon data << pokemon_data.txt");
                 PokemonData pokemonData = pokemon.get(r.nextInt(pokemon.size()));
@@ -176,9 +179,15 @@ public class MantaroAPI {
             }
         });
 
-        get("/mantaroapi/splashes/random", (req, res) -> new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString());
+        get("/mantaroapi/splashes/random", (req, res) -> {
+            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+
+            return new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString();
+        });
 
         post("/mantaroapi/hush", (req, res) -> {
+            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+
             JSONObject obj = new  JSONObject(req.body());
             String name = obj.getString("name");
             String type = obj.getString("type").toLowerCase();
@@ -273,6 +282,8 @@ public class MantaroAPI {
         });
 
         post("/mantaroapi/patreon/check", (req, res) -> {
+            before((request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
+
             JSONObject obj = new  JSONObject(req.body());
             String id = obj.getString("id");
             String placeholder = new JSONObject().put("active", false).put("amount", 0).toString();
@@ -295,6 +306,16 @@ public class MantaroAPI {
         });
     }
 
+    //bootleg af honestly
+    private boolean handleAuthentication(String auth, String agent) {
+        if(this.auth.equals(auth) && agent.contains("Mantaro")) {
+            return true;
+        }
+
+        halt(403);
+        return false;
+    }
+
     private void loadConfig() throws IOException{
         logger.info("Loading configuration file << api.json");
         File config = new File("api.json");
@@ -304,6 +325,7 @@ public class MantaroAPI {
             obj.put("patreon_token", "token");
             obj.put("port", 5874);
             obj.put("check", true);
+            obj.put("auth", "uuid");
 
             FileOutputStream fos = new FileOutputStream(config);
             ByteArrayInputStream bais = new ByteArrayInputStream(obj.toString(4).getBytes(Charset.defaultCharset()));
@@ -332,6 +354,7 @@ public class MantaroAPI {
         port = obj.getInt("port");
         patreonToken = obj.getString("patreon_token");
         checkOldPatrons = obj.getBoolean("check");
+        auth = obj.getString("auth");
     }
 
     private <T> T redis(Function<Jedis, T> consumer) {
