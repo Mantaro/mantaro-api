@@ -37,6 +37,7 @@ import java.nio.charset.Charset;
 import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -100,36 +101,49 @@ public class MantaroAPI {
             System.exit(100);
         }
 
-        if (checkOldPatrons) {
-            try {
-                PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
-                List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
-                System.out.println("Total pledges: " + pledges.size());
+        Executors.newSingleThreadExecutor().submit(() -> {
+            if (checkOldPatrons) {
+                try {
+                    PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
+                    List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
+                    System.out.println("Total pledges: " + pledges.size());
 
-                for (Pledge pledge : pledges) {
-                    String declinedSince = pledge.getDeclinedSince();
-                    //logger.info("Pledge email {}: declined: {}, discordId {}", pledge.getPatron().getEmail(), declinedSince, discordId);
+                    for (Pledge pledge : pledges) {
+                        String declinedSince = pledge.getDeclinedSince();
+                        //logger.info("Pledge email {}: declined: {}, discordId {}", pledge.getPatron().getEmail(), declinedSince, discordId);
 
-                    if (declinedSince == null) {
-                        String discordId = pledge.getPatron().getDiscordId();
+                        if (declinedSince == null) {
+                            String discordId = pledge.getPatron().getDiscordId();
 
-                        //come on guys, use integrations
-                        if (discordId != null) {
-                            double amountDollars = pledge.getAmountCents() / 100D;
-                            logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
+                            //come on guys, use integrations
+                            if (discordId != null) {
+                                double amountDollars = pledge.getAmountCents() / 100D;
+                                logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
+                                redis(jedis -> {
+                                    if (jedis.hexists("donators", discordId))
+                                        return null;
+
+                                    return jedis.hset("donators", discordId, String.valueOf(amountDollars));
+                                });
+                            }
+                        } else {
                             redis(jedis -> {
-                                if (jedis.hexists("donators", discordId))
-                                    return null;
+                                String discordId = pledge.getPatron().getDiscordId();
 
-                                return jedis.hset("donators", discordId, String.valueOf(amountDollars));
+                                if(discordId != null && jedis.hexists("donators", discordId)) {
+                                    return jedis.hdel("donators", discordId);
+                                }
+
+                                //Placeholder.
+                                return null;
                             });
                         }
                     }
+                } catch (Exception e) {
+                    e.printStackTrace();
                 }
-            } catch (Exception e) {
-                e.printStackTrace();
             }
-        }
+        });
 
         logger.info("Reading pokemon data << pokemon_data.txt");
         InputStream stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
@@ -256,6 +270,7 @@ public class MantaroAPI {
             final Iterator<JsonElement> included = json.get("included").getAsJsonArray().iterator();
             final long pledgeAmountCents = json.get("data").getAsJsonObject().get("attributes").getAsJsonObject()
                     .get("amount_cents").getAsLong();
+
             JsonObject patronObject = null;
 
             while(included.hasNext()) {
