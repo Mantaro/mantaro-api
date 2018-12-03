@@ -226,7 +226,7 @@ public class MantaroAPI {
 
                 String answer;
                 try {
-                    answer = hush.getJSONObject(type).getString(name);
+                    answer = hush.getJSONObject(type).getString(name.replace(" ", "_"));
                 } catch (JSONException e) {
                     answer = "NONE";
                 }
