@@ -5,7 +5,8 @@ Having fun with ya!
 Doing bot things.
 With now more embeds!
 Check ~>osu
-Check ~>misc
+Check ~>badges
+Check ~>profile
 Check ~>action
 Check ~>konachan
 Check ~>richest
@@ -14,7 +15,6 @@ Check ~>profile
 Check ~>8ball <question>
 Check ~>gamble
 Check ~>tsundere
-Check ~>greet
 Check ~>pat
 Check ~>poke
 Cookiezi would eat this... or would I eat a cookie?
@@ -27,13 +27,17 @@ in a remote server far away from you.
 an instance of Game.
 *not* an instance of EntityPlayerMP
 an instance of Player
+an instance of Inventory
 404.
+503.
+418.
 Making your life a little easier.
 Shounen surely has a lot of ripples.
 Cast no dirt into the well, that gives you water!
 Maximum explosion for maximum justice!
 Lets go and stick those protest signs somewhere less visible.
 Yamete!
+Yamero!
 Lemme put my serious face.
 I don't wanna, but I guess I gotta.
 Running in %ramgb%GB of allocated memory!... I guess that will be enough... I hope.
@@ -70,13 +74,16 @@ with you~
 with magic
 with songs
 with JDA
-with RPG
+with currency
 with lavaplayer
 with coins
 with actions
 with music beats
 with all your custom commands
 with hot milk.
+with badges
+with riddles
+with slots
 watching anime
 Nothing is impossible if you have a cookie, specially if it's in your nickname.
 Now with more splashes!
@@ -97,5 +104,37 @@ Isn't it colorful out there?
 Feels good to be at home with you <3
 Someone messed up the shards, there is only one... or is it?
 Check out mantaro.site!
-Like mantaro? Vote for mantaro in http://polr.me/voteformantaro
-watching lovelymin
+Support Mantaro at https://patreon.com/mantaro!
+https://patreon.com/mantaro
+Counting credits.
+Why don't we have catgirls yet?
+At your nearest convenience store.
+Hello /r/chile
+Enjoying my time with you!
+What about we go out and have some cake?
+Because maybe.
+I hope you're having an amazing day.
+*pats*
+Last minute studying, huh?
+Woah woah, don't go *that* far!
+All systems operational. I hope.
+Uh, was there a party I didn't get invited to? Hmph!
+A lot of looting and dust.
+Can I get some more of that?!
+Go and solve some riddles!
+Fun, engage!
+Love ya <3
+Some fun here and there isn't a bad thing isn't it?
+Hey, let's get this going!
+You're cute.
+A little bit of this... a little bit of that... yes, that's it!
+Do you like me?
+How can I keep calm if you keep looking at *that* folder?!
+Maybe a bot.
+Wait, do I even have this?
+Colder than /r/ayymd!
+Hold my hand tight, we'll make it another night.
+That's fine, 'cause nothing's gonna scare us now!
+Marvelous!
+Weird things happen if you eat a taco and its a full moon.
+With the revolutionary technique of ancestral mayan technology we have achieved the pinnacle of uhhh... tacos.
