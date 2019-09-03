@@ -327,6 +327,7 @@ public class MantaroAPI {
         return false;
     }
 
+    //Load the config from file.
     private void loadConfig() throws IOException{
         logger.info("Loading configuration file << api.json");
         File config = new File("api.json");
