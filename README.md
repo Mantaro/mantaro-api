@@ -1,6 +1,8 @@
 # Mantaro's API
 Mantaro API: Pokémon, Character and Hush Achievements Wrapper
 
+This is quite wonky and hacky, but that's all I got on here. Thanks for passing by!
+
 Copyright (C) 2016-2019 **David Rubio Escares** / **Kodehawa**
 
 ```
