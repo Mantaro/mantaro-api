@@ -5,9 +5,7 @@ plugins {
     //Adds an Executable Manifest
     id 'application'
     //Creates FatJars
-    id 'com.github.johnrengelman.shadow' version '1.2.4'
-    //Tell me when smth is outdated
-    id 'com.github.ben-manes.versions' version '0.16.0'
+    id 'com.github.johnrengelman.shadow' version '5.1.0'
 }
 
 group 'kodehawa'

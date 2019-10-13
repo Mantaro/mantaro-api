@@ -178,6 +178,15 @@ public class MantaroAPI {
             before("", (request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
             before("/*", (request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
 
+            get("/music", (req, res) -> {
+                InputStream musicStream = getClass().getClassLoader().getResourceAsStream("music.txt");
+                List<String> musicLines = IOUtils.readLines(musicStream, Charset.forName("UTF-8"));
+
+                return new JSONObject()
+                        .put("message", String.join("\n", musicLines))
+                        .put("epoch", System.currentTimeMillis());
+            });
+
             get("/pokemon", (req, res) -> {
                 try {
                     logger.debug("Retrieving pokemon data << pokemon_data.txt");
