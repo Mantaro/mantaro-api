@@ -21,25 +21,23 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.patreon.PatreonAPI;
 import com.patreon.models.Pledge;
+import net.kodehawa.mantaroapi.bot.ShardStats;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.apache.commons.io.IOUtils;
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import redis.clients.jedis.Jedis;
-import redis.clients.jedis.JedisPool;
-import redis.clients.jedis.JedisPoolConfig;
 import spark.Spark;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
-import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.Executors;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static spark.Spark.*;
 
@@ -51,28 +49,8 @@ public class MantaroAPI {
     private final Random r = new Random();
     private final JSONObject hush;
     private final JsonParser parser = new JsonParser();
-    private String patreonSecret;
-    private int port;
-    private String patreonToken;
-    private boolean checkOldPatrons;
-    private String auth;
-
-    private final JedisPoolConfig poolConfig = buildPoolConfig();
-    private JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
-    private JedisPoolConfig buildPoolConfig() {
-        final JedisPoolConfig poolConfig = new JedisPoolConfig();
-        poolConfig.setMaxTotal(128);
-        poolConfig.setMaxIdle(128);
-        poolConfig.setMinIdle(16);
-        poolConfig.setTestOnBorrow(true);
-        poolConfig.setTestOnReturn(true);
-        poolConfig.setTestWhileIdle(true);
-        poolConfig.setMinEvictableIdleTimeMillis(Duration.ofSeconds(60).toMillis());
-        poolConfig.setTimeBetweenEvictionRunsMillis(Duration.ofSeconds(30).toMillis());
-        poolConfig.setNumTestsPerEvictionRun(3);
-        poolConfig.setBlockWhenExhausted(true);
-        return poolConfig;
-    }
+    private Map<Integer, ShardStats> shardStatsMap = new HashMap<>();
+    private Config config;
 
     public static void main(String[] args) {
         try {
@@ -95,16 +73,16 @@ public class MantaroAPI {
                 ":: Mantaro API {} :: Made by Kodehawa ::\n", version);
 
         try {
-            loadConfig();
+            config = Utils.loadConfig();
         } catch (IOException e) {
             logger.error("An error occurred while loading the configuration file!", e);
             System.exit(100);
         }
 
         Executors.newSingleThreadExecutor().submit(() -> {
-            if (checkOldPatrons) {
+            if (config.checkOldPatrons()) {
                 try {
-                    PatreonAPI patreonAPI = new PatreonAPI(patreonToken);
+                    PatreonAPI patreonAPI = new PatreonAPI(config.getPatreonToken());
                     List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
                     System.out.println("Total pledges: " + pledges.size());
 
@@ -119,7 +97,7 @@ public class MantaroAPI {
                             if (discordId != null) {
                                 double amountDollars = pledge.getAmountCents() / 100D;
                                 logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
-                                redis(jedis -> {
+                                Utils.accessRedis(jedis -> {
                                     if (jedis.hexists("donators", discordId))
                                         return null;
 
@@ -127,7 +105,7 @@ public class MantaroAPI {
                                 });
                             }
                         } else {
-                            redis(jedis -> {
+                            Utils.accessRedis(jedis -> {
                                 String discordId = pledge.getPatron().getDiscordId();
 
                                 if(discordId != null && jedis.hexists("donators", discordId)) {
@@ -147,7 +125,7 @@ public class MantaroAPI {
 
         logger.info("Reading pokemon data << pokemon_data.txt");
         InputStream stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
-        List<String> pokemonLines = IOUtils.readLines(stream, Charset.forName("UTF-8"));
+        List<String> pokemonLines = IOUtils.readLines(stream, StandardCharsets.UTF_8);
         for (String s : pokemonLines) {
             String[] data = s.replace("\r", "").split("`");
             String image = data[0];
@@ -157,18 +135,18 @@ public class MantaroAPI {
 
         logger.info("Reading hush data << hush.json");
         InputStream hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
-        List<String> hushLines = IOUtils.readLines(hushStream, Charset.forName("UTF-8"));
-        hush = new JSONObject(hushLines.stream().collect(Collectors.joining("")));
+        List<String> hushLines = IOUtils.readLines(hushStream, StandardCharsets.UTF_8);
+        hush = new JSONObject(String.join("", hushLines));
 
         logger.info("Reading splashes data << splashes.txt");
         InputStream splashesStream = getClass().getClassLoader().getResourceAsStream("splashes.txt");
-        List<String> splashesLines = IOUtils.readLines(splashesStream, Charset.forName("UTF-8"));
+        List<String> splashesLines = IOUtils.readLines(splashesStream, StandardCharsets.UTF_8);
         for (String s : splashesLines) {
             splashes.add(s.replace("\r", ""));
         }
 
         splashes.removeIf(s -> s == null || s.isEmpty());
-        port(port);
+        port(config.getPort());
         Spark.init();
 
         get("/mantaroapi/ping", (req, res) -> new JSONObject().put("status", "ok").put("version", version).toString());
@@ -211,7 +189,7 @@ public class MantaroAPI {
                 String id = obj.getString("id");
                 String placeholder = new JSONObject().put("active", false).put("amount", "0").toString();
 
-                return redis(jedis -> {
+                return Utils.accessRedis(jedis -> {
                     try {
                         if(!jedis.hexists("donators", id)) {
                             return placeholder;
@@ -243,6 +221,26 @@ public class MantaroAPI {
                 return new JSONObject().put("hush", answer);
             });
 
+            post("/stats/shards", (req, res) -> {
+                JSONObject object = new JSONObject(req.body());
+                JSONArray shards = object.getJSONArray("shards");
+
+                for(Object shard : shards) {
+                    JSONObject shardObject = (JSONObject) shard;
+                    ShardStats stats = new ShardStats();
+                    stats.setGuilds(shardObject.getInt("guilds"));
+                    stats.setUsers(shardObject.getInt("users"));
+                    stats.setPing(shardObject.getInt("ping"));
+                    stats.setEventTime(shardObject.getInt("evt_time"));
+                    stats.setQueue(shardObject.getInt("queue"));
+
+                    shardStatsMap.put(object.getInt("id"), stats);
+                }
+
+                return "{\"status\":\"ok\"}";
+            });
+
+            get("/stats/shardinfo", (req, res) -> new JSONObject(shardStatsMap));
         });
 
         //Handle patreon webhooks.
@@ -257,7 +255,7 @@ public class MantaroAPI {
                 return "";
             }
 
-            final String hmac = HmacUtils.hmacMd5Hex(patreonSecret, body);
+            final String hmac = HmacUtils.hmacMd5Hex(config.getPatreonSecret(), body);
             if(!MessageDigest.isEqual(hmac.getBytes(), signature.getBytes())) {
                 logger.warn("Patreon webhook signature was invalid! Probably fake / invalid request.");
                 halt(401);
@@ -300,16 +298,14 @@ public class MantaroAPI {
                             discordUserId, String.format("%.2f", pledgeAmountDollars));
                     switch(patreonEvent) {
                         case "pledges:create":
-                            // pledge created with cents
-                            redis(jedis -> jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars)));
-                            break;
                         case "pledges:update":
                             // pledge updated to cents
                             //just set it again
-                            redis(jedis -> jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars)));
+                            // pledge created with cents
+                            Utils.accessRedis(jedis -> jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars)));
                             break;
                         case "pledges:delete":
-                            redis(jedis -> jedis.hdel("donators", discordUserId));
+                            Utils.accessRedis(jedis -> jedis.hdel("donators", discordUserId));
                             break;
                         default:
                             logger.info("Got unknown patreon event for Discord user: " + patreonEvent);
@@ -327,61 +323,19 @@ public class MantaroAPI {
     }
 
     //bootleg af honestly
-    private boolean handleAuthentication(String auth, String agent) {
-        if(this.auth.equals(auth) && agent.contains("Mantaro")) {
-            return true;
+    private void handleAuthentication(String auth, String agent) {
+        if(config.getAuth().equals(auth) && agent.contains(config.getUserAgent())) {
+            return;
         }
 
         halt(403);
-        return false;
     }
 
-    //Load the config from file.
-    private void loadConfig() throws IOException{
-        logger.info("Loading configuration file << api.json");
-        File config = new File("api.json");
-        if(!config.exists()) {
-            JSONObject obj = new JSONObject();
-            obj.put("patreon_secret", "secret");
-            obj.put("patreon_token", "token");
-            obj.put("port", 5874);
-            obj.put("check", true);
-            obj.put("auth", "uuid");
-
-            FileOutputStream fos = new FileOutputStream(config);
-            ByteArrayInputStream bais = new ByteArrayInputStream(obj.toString(4).getBytes(Charset.defaultCharset()));
-            byte[] buffer = new byte[1024];
-            int read;
-            while((read = bais.read(buffer)) != -1)
-                fos.write(buffer, 0, read);
-            fos.close();
-            logger.error("Could not find config file at " + config.getAbsolutePath() + ", creating a new one...");
-            logger.error("Generated new config file at " + config.getAbsolutePath() + ".");
-            logger.error("Please, fill the file with valid properties.");
-            System.exit(-1);
-        }
-
-        JSONObject obj; {
-            FileInputStream fis = new FileInputStream(config);
-            byte[] buffer = new byte[1024];
-            int read;
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            while((read = fis.read(buffer)) != -1)
-                baos.write(buffer, 0, read);
-            obj = new JSONObject(new String(baos.toByteArray(), Charset.defaultCharset()));
-        }
-
-        patreonSecret = obj.getString("patreon_secret");
-        port = obj.getInt("port");
-        patreonToken = obj.getString("patreon_token");
-        checkOldPatrons = obj.getBoolean("check");
-        auth = obj.getString("auth");
+    public Config getConfig() {
+        return config;
     }
 
-    private <T> T redis(Function<Jedis, T> consumer) {
-        try(Jedis jedis = jedisPool.getResource()) {
-            logger.debug("Accessing redis instance");
-            return consumer.apply(jedis);
-        }
+    public void setConfig(Config config) {
+        this.config = config;
     }
 }
