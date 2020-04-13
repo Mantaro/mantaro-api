@@ -1,4 +1,4 @@
-package net.kodehawa.mantaroapi;
+package net.kodehawa.mantaroapi.entities;
 
 public class AnimeData {
     private String name;

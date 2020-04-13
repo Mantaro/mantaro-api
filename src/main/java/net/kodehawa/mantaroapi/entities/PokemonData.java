@@ -14,7 +14,7 @@
  * along with Mantaro.  If not, see http://www.gnu.org/licenses/
  */
 
-package net.kodehawa.mantaroapi;
+package net.kodehawa.mantaroapi.entities;
 
 public class PokemonData {
     private String name;

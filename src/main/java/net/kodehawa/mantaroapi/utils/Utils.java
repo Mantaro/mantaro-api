@@ -1,4 +1,4 @@
-package net.kodehawa.mantaroapi;
+package net.kodehawa.mantaroapi.utils;
 
 import org.json.JSONObject;
 import org.slf4j.Logger;

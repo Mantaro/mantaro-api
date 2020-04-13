@@ -3,8 +3,8 @@ package net.kodehawa.mantaroapi.patreon;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import net.kodehawa.mantaroapi.Config;
-import net.kodehawa.mantaroapi.Utils;
+import net.kodehawa.mantaroapi.utils.Config;
+import net.kodehawa.mantaroapi.utils.Utils;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.slf4j.Logger;
 

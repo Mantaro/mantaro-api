@@ -1,4 +1,4 @@
-package net.kodehawa.mantaroapi;
+package net.kodehawa.mantaroapi.utils;
 
 public class Config {
     private String patreonSecret;

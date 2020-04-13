@@ -18,8 +18,12 @@ package net.kodehawa.mantaroapi;
 
 import net.kodehawa.mantaroapi.bot.ShardStats;
 import net.kodehawa.mantaroapi.bot.ShardType;
+import net.kodehawa.mantaroapi.entities.AnimeData;
+import net.kodehawa.mantaroapi.entities.PokemonData;
 import net.kodehawa.mantaroapi.patreon.PatreonReceiver;
 import net.kodehawa.mantaroapi.patreon.PledgeLoader;
+import net.kodehawa.mantaroapi.utils.Config;
+import net.kodehawa.mantaroapi.utils.Utils;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONException;

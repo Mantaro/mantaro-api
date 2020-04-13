@@ -2,8 +2,8 @@ package net.kodehawa.mantaroapi.patreon;
 
 import com.patreon.PatreonAPI;
 import com.patreon.models.Pledge;
-import net.kodehawa.mantaroapi.Config;
-import net.kodehawa.mantaroapi.Utils;
+import net.kodehawa.mantaroapi.utils.Config;
+import net.kodehawa.mantaroapi.utils.Utils;
 import org.slf4j.Logger;
 
 import java.util.List;
