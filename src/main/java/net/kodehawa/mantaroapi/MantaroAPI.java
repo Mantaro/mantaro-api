@@ -43,8 +43,9 @@ import static spark.Spark.*;
 
 public class MantaroAPI {
     private final Logger logger = LoggerFactory.getLogger(MantaroAPI.class);
-    private final String version = "2.0.1";
+    private final String version = "2.0.2";
     private final List<PokemonData> pokemon = new ArrayList<>();
+    private final List<AnimeData> anime = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
     private final Random r = new Random();
     private final JSONObject hush;
@@ -133,6 +134,16 @@ public class MantaroAPI {
             pokemon.add(new PokemonData(names[0], image, names));
         }
 
+        logger.info("Reading anime data << anime_data.txt");
+        InputStream animeStream = getClass().getClassLoader().getResourceAsStream("anime_data.txt");
+        List<String> animeLines = IOUtils.readLines(animeStream, StandardCharsets.UTF_8);
+        for (String s : animeLines) {
+            String[] data = s.replace("\r", "").split(";");
+            String name = data[0];
+            String image = data[1];
+            anime.add(new AnimeData(name, image));
+        }
+
         logger.info("Reading hush data << hush.json");
         InputStream hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
         List<String> hushLines = IOUtils.readLines(hushStream, StandardCharsets.UTF_8);
@@ -153,17 +164,8 @@ public class MantaroAPI {
 
         path("/mantaroapi/bot", () -> {
             //Spark why does this work like this but not without an argument, I'M LITERALLY GIVING YOU AN EMPTY STRING
-            before("", (request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
-            before("/*", (request, response) -> handleAuthentication(request.headers("Authorization"), request.headers("User-Agent")));
-
-            get("/music", (req, res) -> {
-                InputStream musicStream = getClass().getClassLoader().getResourceAsStream("music.txt");
-                List<String> musicLines = IOUtils.readLines(musicStream, Charset.forName("UTF-8"));
-
-                return new JSONObject()
-                        .put("message", String.join("\n", musicLines))
-                        .put("epoch", System.currentTimeMillis());
-            });
+            before("", (request, response) -> handleAuthentication(request.headers("Authorization")));
+            before("/*", (request, response) -> handleAuthentication(request.headers("Authorization")));
 
             get("/pokemon", (req, res) -> {
                 try {
@@ -175,6 +177,22 @@ public class MantaroAPI {
                     return new JSONObject()
                             .put("name", name)
                             .put("names", names)
+                            .put("image", image)
+                            .toString();
+                } catch (Exception e) {
+                    return new JSONObject().put("error", e.getMessage()).toString();
+                }
+            });
+
+            get("/character", (req, res) -> {
+                try {
+                    logger.debug("Retrieving anime data << anime_data.txt");
+                    AnimeData animeData = anime.get(r.nextInt(anime.size()));
+                    String name = animeData.getName();
+                    String image = animeData.getUrl();
+
+                    return new JSONObject()
+                            .put("name", name)
                             .put("image", image)
                             .toString();
                 } catch (Exception e) {
@@ -323,12 +341,13 @@ public class MantaroAPI {
     }
 
     //bootleg af honestly
-    private void handleAuthentication(String auth, String agent) {
-        if(config.getAuth().equals(auth) && agent.contains(config.getUserAgent())) {
-            return;
+    private boolean handleAuthentication(String auth) {
+        if(config.getAuth().equals(auth)) {
+            return false;
         }
 
         halt(403);
+        return false;
     }
 
     public Config getConfig() {
