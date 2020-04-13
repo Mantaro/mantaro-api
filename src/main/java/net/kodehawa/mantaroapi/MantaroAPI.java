@@ -38,7 +38,7 @@ import static spark.Spark.*;
 
 public class MantaroAPI {
     private final Logger logger = LoggerFactory.getLogger(MantaroAPI.class);
-    private final String version = "2.0.2";
+    private final String version = "2.1.0";
     private final List<PokemonData> pokemon = new ArrayList<>();
     private final List<AnimeData> anime = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
@@ -74,11 +74,8 @@ public class MantaroAPI {
             System.exit(100);
         }
 
-        Executors.newSingleThreadExecutor().submit(() -> {
-            if (config.checkOldPatrons()) {
-                PledgeLoader.checkPledges(logger, config);
-            }
-        });
+        //Load current pledges, if necessary.
+        Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config));
 
         readFiles();
         port(config.getPort());
