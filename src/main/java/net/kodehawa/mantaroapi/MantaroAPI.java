@@ -343,7 +343,7 @@ public class MantaroAPI {
     //bootleg af honestly
     private boolean handleAuthentication(String auth) {
         if(config.getAuth().equals(auth)) {
-            return false;
+            return true;
         }
 
         halt(403);
