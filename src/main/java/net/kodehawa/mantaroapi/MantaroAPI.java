@@ -16,13 +16,10 @@
 
 package net.kodehawa.mantaroapi;
 
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.patreon.PatreonAPI;
-import com.patreon.models.Pledge;
 import net.kodehawa.mantaroapi.bot.ShardStats;
-import org.apache.commons.codec.digest.HmacUtils;
+import net.kodehawa.mantaroapi.bot.ShardType;
+import net.kodehawa.mantaroapi.patreon.PatreonReceiver;
+import net.kodehawa.mantaroapi.patreon.PledgeLoader;
 import org.apache.commons.io.IOUtils;
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -33,9 +30,7 @@ import spark.Spark;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.util.*;
 import java.util.concurrent.Executors;
 
@@ -48,8 +43,7 @@ public class MantaroAPI {
     private final List<AnimeData> anime = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
     private final Random r = new Random();
-    private final JSONObject hush;
-    private final JsonParser parser = new JsonParser();
+    private JSONObject hush;
     private Map<Integer, ShardStats> shardStatsMap = new HashMap<>();
     private Config config;
 
@@ -82,83 +76,16 @@ public class MantaroAPI {
 
         Executors.newSingleThreadExecutor().submit(() -> {
             if (config.checkOldPatrons()) {
-                try {
-                    PatreonAPI patreonAPI = new PatreonAPI(config.getPatreonToken());
-                    List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
-                    System.out.println("Total pledges: " + pledges.size());
-
-                    for (Pledge pledge : pledges) {
-                        String declinedSince = pledge.getDeclinedSince();
-                        //logger.info("Pledge email {}: declined: {}, discordId {}", pledge.getPatron().getEmail(), declinedSince, discordId);
-
-                        if (declinedSince == null) {
-                            String discordId = pledge.getPatron().getDiscordId();
-
-                            //come on guys, use integrations
-                            if (discordId != null) {
-                                double amountDollars = pledge.getAmountCents() / 100D;
-                                logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
-                                Utils.accessRedis(jedis -> {
-                                    if (jedis.hexists("donators", discordId))
-                                        return null;
-
-                                    return jedis.hset("donators", discordId, String.valueOf(amountDollars));
-                                });
-                            }
-                        } else {
-                            Utils.accessRedis(jedis -> {
-                                String discordId = pledge.getPatron().getDiscordId();
-
-                                if(discordId != null && jedis.hexists("donators", discordId)) {
-                                    return jedis.hdel("donators", discordId);
-                                }
-
-                                //Placeholder.
-                                return null;
-                            });
-                        }
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                PledgeLoader.checkPledges(logger, config);
             }
         });
 
-        logger.info("Reading pokemon data << pokemon_data.txt");
-        InputStream stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
-        List<String> pokemonLines = IOUtils.readLines(stream, StandardCharsets.UTF_8);
-        for (String s : pokemonLines) {
-            String[] data = s.replace("\r", "").split("`");
-            String image = data[0];
-            String[] names = Arrays.copyOfRange(data, 1, data.length);
-            pokemon.add(new PokemonData(names[0], image, names));
-        }
-
-        logger.info("Reading anime data << anime_data.txt");
-        InputStream animeStream = getClass().getClassLoader().getResourceAsStream("anime_data.txt");
-        List<String> animeLines = IOUtils.readLines(animeStream, StandardCharsets.UTF_8);
-        for (String s : animeLines) {
-            String[] data = s.replace("\r", "").split(";");
-            String name = data[0];
-            String image = data[1];
-            anime.add(new AnimeData(name, image));
-        }
-
-        logger.info("Reading hush data << hush.json");
-        InputStream hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
-        List<String> hushLines = IOUtils.readLines(hushStream, StandardCharsets.UTF_8);
-        hush = new JSONObject(String.join("", hushLines));
-
-        logger.info("Reading splashes data << splashes.txt");
-        InputStream splashesStream = getClass().getClassLoader().getResourceAsStream("splashes.txt");
-        List<String> splashesLines = IOUtils.readLines(splashesStream, StandardCharsets.UTF_8);
-        for (String s : splashesLines) {
-            splashes.add(s.replace("\r", ""));
-        }
-
-        splashes.removeIf(s -> s == null || s.isEmpty());
+        readFiles();
         port(config.getPort());
         Spark.init();
+
+        //Receive webhooks from Patreon.
+        new PatreonReceiver(logger, config);
 
         get("/mantaroapi/ping", (req, res) -> new JSONObject().put("status", "ok").put("version", version).toString());
 
@@ -246,6 +173,7 @@ public class MantaroAPI {
                 for(Object shard : shards) {
                     JSONObject shardObject = (JSONObject) shard;
                     ShardStats stats = new ShardStats();
+                    stats.setType(ShardType.valueOf(shardObject.getString("type")));
                     stats.setGuilds(shardObject.getInt("guilds"));
                     stats.setUsers(shardObject.getInt("users"));
                     stats.setPing(shardObject.getInt("ping"));
@@ -260,101 +188,63 @@ public class MantaroAPI {
 
             get("/stats/shardinfo", (req, res) -> new JSONObject(shardStatsMap));
         });
-
-        //Handle patreon webhooks.
-        post("/mantaroapi/patreon", (req, res) -> {
-            final String body = req.body();
-            final String signature = req.headers("X-Patreon-Signature");
-
-            if(signature == null) {
-                logger.warn("Patreon webhook had no signature! Probably fake / invalid request.");
-                logger.warn("Patreon webhook data: " + req.body());
-                halt(401);
-                return "";
-            }
-
-            final String hmac = HmacUtils.hmacMd5Hex(config.getPatreonSecret(), body);
-            if(!MessageDigest.isEqual(hmac.getBytes(), signature.getBytes())) {
-                logger.warn("Patreon webhook signature was invalid! Probably fake / invalid request.");
-                halt(401);
-                return "";
-            } else {
-                logger.info("Accepted Patreon signed data");
-                logger.debug("Accepted Patreon signed data <- {}", body);
-
-            }
-
-            // Events are pledges:{create,update,delete}
-            final String patreonEvent = req.headers("X-Patreon-Event");
-            final JsonObject json = parser.parse(body).getAsJsonObject();
-
-            //what the fuck
-            final String patronId = json.get("data").getAsJsonObject().get("relationships").getAsJsonObject().get("patron")
-                    .getAsJsonObject().get("data").getAsJsonObject().get("id").getAsString();
-
-            final Iterator<JsonElement> included = json.get("included").getAsJsonArray().iterator();
-            final long pledgeAmountCents = json.get("data").getAsJsonObject().get("attributes").getAsJsonObject()
-                    .get("amount_cents").getAsLong();
-
-            JsonObject patronObject = null;
-
-            while(included.hasNext()) {
-                final JsonElement next = included.next();
-                final JsonObject includedObject = next.getAsJsonObject();
-                if(includedObject.get("id").getAsString().equals(patronId)) {
-                    patronObject = includedObject;
-                    break;
-                }
-            }
-            try {
-                if(patronObject != null) {
-                    final String discordUserId = patronObject.get("attributes").getAsJsonObject().get("social_connections")
-                            .getAsJsonObject().get("discord").getAsJsonObject().get("user_id").getAsString();
-                    double pledgeAmountDollars = pledgeAmountCents / 100D;
-
-                    logger.info("Recv. Patreon event '{}' for Discord user '{}' with amount ${}", patreonEvent,
-                            discordUserId, String.format("%.2f", pledgeAmountDollars));
-                    switch(patreonEvent) {
-                        case "pledges:create":
-                        case "pledges:update":
-                            // pledge updated to cents
-                            //just set it again
-                            // pledge created with cents
-                            Utils.accessRedis(jedis -> jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars)));
-                            break;
-                        case "pledges:delete":
-                            Utils.accessRedis(jedis -> jedis.hdel("donators", discordUserId));
-                            break;
-                        default:
-                            logger.info("Got unknown patreon event for Discord user: " + patreonEvent);
-                            break;
-                    }
-                } else {
-                    logger.info("Null patron object?");
-                }
-            } catch(final Exception e) {
-                e.printStackTrace();
-            }
-
-            return "{\"status\":\"ok\"}";
-        });
     }
 
     //bootleg af honestly
-    private boolean handleAuthentication(String auth) {
-        if(config.getAuth().equals(auth)) {
-            return true;
+    private void handleAuthentication(String auth) {
+        if(!config.getAuth().equals(auth))
+            halt(403);
+    }
+
+    public void readFiles() throws IOException {
+        logger.info("Reading pokemon data << pokemon_data.txt");
+        InputStream stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
+        if(stream != null) {
+            List<String> pokemonLines = IOUtils.readLines(stream, StandardCharsets.UTF_8);
+            for (String s : pokemonLines) {
+                String[] data = s.replace("\r", "").split("`");
+                String image = data[0];
+                String[] names = Arrays.copyOfRange(data, 1, data.length);
+                pokemon.add(new PokemonData(names[0], image, names));
+            }
+        } else {
+            logger.error("Error loading Pokemon data!");
         }
 
-        halt(403);
-        return false;
-    }
+        logger.info("Reading anime data << anime_data.txt");
+        InputStream animeStream = getClass().getClassLoader().getResourceAsStream("anime_data.txt");
+        if(animeStream != null) {
+            List<String> animeLines = IOUtils.readLines(animeStream, StandardCharsets.UTF_8);
+            for (String s : animeLines) {
+                String[] data = s.replace("\r", "").split(";");
+                String name = data[0];
+                String image = data[1];
+                anime.add(new AnimeData(name, image));
+            }
+        } else {
+            logger.error("Error loading anime data!");
+        }
 
-    public Config getConfig() {
-        return config;
-    }
+        logger.info("Reading hush data << hush.json");
+        InputStream hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
+        if(hushStream != null) {
+            List<String> hushLines = IOUtils.readLines(hushStream, StandardCharsets.UTF_8);
+            hush = new JSONObject(String.join("", hushLines));
+        } else {
+            logger.error("Error loading hush badges!");
+        }
 
-    public void setConfig(Config config) {
-        this.config = config;
+        logger.info("Reading splashes data << splashes.txt");
+        InputStream splashesStream = getClass().getClassLoader().getResourceAsStream("splashes.txt");
+        if(splashesStream != null) {
+            List<String> splashesLines = IOUtils.readLines(splashesStream, StandardCharsets.UTF_8);
+            for (String s : splashesLines) {
+                splashes.add(s.replace("\r", ""));
+            }
+
+            splashes.removeIf(s -> s == null || s.isEmpty());
+        } else {
+            logger.error("Error loading splashes!");
+        }
     }
 }

@@ -1,11 +1,20 @@
 package net.kodehawa.mantaroapi.bot;
 
 public class ShardStats {
+    private ShardType type;
     private int guilds;
     private int users;
     private int ping;
     private int queue;
     private int eventTime;
+
+    public ShardType getType() {
+        return type;
+    }
+
+    public void setType(ShardType type) {
+        this.type = type;
+    }
 
     public int getPing() {
         return ping;
