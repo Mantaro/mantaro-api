@@ -23,6 +23,8 @@ public class Config {
     private boolean checkOldPatrons;
     private String auth;
     private String userAgent;
+    private boolean constantCheck;
+    private int constantCheckDelay;
 
     public String getUserAgent() {
         return userAgent;
@@ -70,5 +72,21 @@ public class Config {
 
     public void setAuth(String auth) {
         this.auth = auth;
+    }
+
+    public boolean isConstantCheck() {
+        return constantCheck;
+    }
+
+    public void setConstantCheck(boolean constantCheck) {
+        this.constantCheck = constantCheck;
+    }
+
+    public int getConstantCheckDelay() {
+        return constantCheckDelay;
+    }
+
+    public void setConstantCheckDelay(int constantCheckDelay) {
+        this.constantCheckDelay = constantCheckDelay;
     }
 }

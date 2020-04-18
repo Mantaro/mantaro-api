@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 import static spark.Spark.*;
 
@@ -80,6 +81,13 @@ public class MantaroAPI {
 
         //Load current pledges, if necessary.
         Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config));
+
+        //Check pledges every 5 days.
+        if(config.isConstantCheck()) {
+            Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() ->
+                    PledgeLoader.checkPledges(logger, config), 0, config.getConstantCheckDelay(), TimeUnit.DAYS
+            );
+        }
 
         readFiles();
         port(config.getPort());

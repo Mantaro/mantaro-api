@@ -59,6 +59,9 @@ public class Utils {
             obj.put("port", 5874);
             obj.put("check", true);
             obj.put("auth", "uuid");
+            obj.put("user_agent", "agent");
+            obj.put("constant_check", false);
+            obj.put("constant_check_delay_days", 1);
 
             FileOutputStream fos = new FileOutputStream(config);
             ByteArrayInputStream bais = new ByteArrayInputStream(obj.toString(4).getBytes(Charset.defaultCharset()));
@@ -87,6 +90,8 @@ public class Utils {
         cfg.setPort(obj.getInt("port"));
         cfg.setPatreonToken(obj.getString("patreon_token"));
         cfg.setCheckOldPatrons(obj.getBoolean("check"));
+        cfg.setConstantCheck(obj.getBoolean("constant_check"));
+        cfg.setConstantCheckDelay(obj.getInt("constant_check_delay_days"));
         cfg.setAuth(obj.getString("auth"));
         cfg.setUserAgent(obj.getString("user_agent"));
 
