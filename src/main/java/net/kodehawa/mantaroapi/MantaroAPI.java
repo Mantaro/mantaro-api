@@ -51,6 +51,7 @@ public class MantaroAPI {
     private JSONObject hush;
     private Map<Integer, ShardStats> shardStatsMap = new HashMap<>();
     private Config config;
+    private int servedRequests;
 
     public static void main(String[] args) {
         try {
@@ -85,23 +86,37 @@ public class MantaroAPI {
         //Check pledges every 5 days.
         if(config.isConstantCheck()) {
             Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() ->
-                    PledgeLoader.checkPledges(logger, config), 0, config.getConstantCheckDelay(), TimeUnit.DAYS
+                    PledgeLoader.checkPledges(logger, config), config.getConstantCheckDelay(), config.getConstantCheckDelay(), TimeUnit.DAYS
             );
         }
 
+        //Read text/json files containing information related to what the API serves.
         readFiles();
+
+        //Spart initialization.
         port(config.getPort());
         Spark.init();
 
         //Receive webhooks from Patreon.
         new PatreonReceiver(logger, config);
 
-        get("/mantaroapi/ping", (req, res) -> new JSONObject().put("status", "ok").put("version", version).toString());
+        get("/mantaroapi/ping", (req, res) ->
+                new JSONObject().put("status", "ok")
+                        .put("version", version)
+                        .put("requests_served", servedRequests)
+                        .toString()
+        );
 
         path("/mantaroapi/bot", () -> {
             //Spark why does this work like this but not without an argument, I'M LITERALLY GIVING YOU AN EMPTY STRING
-            before("", (request, response) -> handleAuthentication(request.headers("Authorization")));
-            before("/*", (request, response) -> handleAuthentication(request.headers("Authorization")));
+            before("", (request, response) -> {
+                handleAuthentication(request.headers("Authorization"));
+                servedRequests++;
+            });
+            before("/*", (request, response) -> {
+                handleAuthentication(request.headers("Authorization"));
+                servedRequests++;
+            });
 
             get("/pokemon", (req, res) -> {
                 try {
