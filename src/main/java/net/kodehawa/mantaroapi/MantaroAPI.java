@@ -45,9 +45,10 @@ public class MantaroAPI {
     private final List<PokemonData> pokemon = new ArrayList<>();
     private final List<AnimeData> anime = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
+    private final Map<Long, Map<Integer, ShardStats>> shardStatsMap = new HashMap<>();
+
     private final Random r = new Random();
-    private JSONObject hush;
-    private Map<Long, Map<Integer, ShardStats>> shardStatsMap = new HashMap<>();
+    private JSONObject hush; //hush there, I know you're looking .w.
     private Config config;
     private int servedRequests;
 
@@ -81,7 +82,7 @@ public class MantaroAPI {
         //Load current pledges, if necessary.
         Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config));
 
-        //Check pledges every 5 days.
+        //Check pledges every x days, if enabled.
         if(config.isConstantCheck()) {
             Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() ->
                     PledgeLoader.checkPledges(logger, config), config.getConstantCheckDelay(), config.getConstantCheckDelay(), TimeUnit.DAYS
@@ -151,6 +152,11 @@ public class MantaroAPI {
 
             get("/splashes/random", (req, res) -> new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString());
 
+            get("/patreon/refresh", (req, res) -> {
+                Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config));
+                return "{\"status\":\"ok\"}";
+            });
+
             post("/patreon/check", (req, res) -> {
                 JSONObject obj = new  JSONObject(req.body());
                 String id = obj.getString("id");
@@ -158,9 +164,8 @@ public class MantaroAPI {
 
                 return Utils.accessRedis(jedis -> {
                     try {
-                        if(!jedis.hexists("donators", id)) {
+                        if(!jedis.hexists("donators", id))
                             return placeholder;
-                        }
 
                         String amount = jedis.hget("donators", id);
 
