@@ -17,7 +17,6 @@
 package net.kodehawa.mantaroapi;
 
 import net.kodehawa.mantaroapi.bot.ShardStats;
-import net.kodehawa.mantaroapi.bot.ShardType;
 import net.kodehawa.mantaroapi.entities.AnimeData;
 import net.kodehawa.mantaroapi.entities.PokemonData;
 import net.kodehawa.mantaroapi.patreon.PatreonReceiver;
@@ -25,7 +24,6 @@ import net.kodehawa.mantaroapi.patreon.PledgeLoader;
 import net.kodehawa.mantaroapi.utils.Config;
 import net.kodehawa.mantaroapi.utils.Utils;
 import org.apache.commons.io.IOUtils;
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import org.slf4j.Logger;
@@ -49,7 +47,7 @@ public class MantaroAPI {
     private final List<String> splashes = new ArrayList<>();
     private final Random r = new Random();
     private JSONObject hush;
-    private Map<Integer, ShardStats> shardStatsMap = new HashMap<>();
+    private Map<Long, Map<Integer, ShardStats>> shardStatsMap = new HashMap<>();
     private Config config;
     private int servedRequests;
 
@@ -191,26 +189,68 @@ public class MantaroAPI {
             });
 
             post("/stats/shards", (req, res) -> {
-                JSONObject object = new JSONObject(req.body());
-                JSONArray shards = object.getJSONArray("shards");
+                try {
+                    JSONObject object = new JSONObject(req.body());
+                    long botId = object.getLong("bot_id");
+                    int shardId = object.getInt("shard_id");
+                    JSONObject shardInfo = object.getJSONObject("shard_info");
 
-                for(Object shard : shards) {
-                    JSONObject shardObject = (JSONObject) shard;
                     ShardStats stats = new ShardStats();
-                    stats.setType(ShardType.valueOf(shardObject.getString("type")));
-                    stats.setGuilds(shardObject.getInt("guilds"));
-                    stats.setUsers(shardObject.getInt("users"));
-                    stats.setPing(shardObject.getInt("ping"));
-                    stats.setEventTime(shardObject.getInt("evt_time"));
-                    stats.setQueue(shardObject.getInt("queue"));
 
-                    shardStatsMap.put(object.getInt("id"), stats);
+                    stats.setGuilds(shardInfo.getLong("guilds"));
+                    stats.setUsers(shardInfo.getLong("users"));
+                    stats.setPing(shardInfo.getLong("ping"));
+                    stats.setEventTime(shardInfo.getLong("event_time"));
+
+
+                    shardStatsMap.put(botId, Map.of(shardId, stats));
+                    return "{\"status\":\"ok\"}";
+                } catch (JSONException e) {
+                    e.printStackTrace();
+
+                    return new JSONObject()
+                            .put("message", "Error parsing JSON data. See API logs.")
+                            .toString();
                 }
-
-                return "{\"status\":\"ok\"}";
             });
 
             get("/stats/shardinfo", (req, res) -> new JSONObject(shardStatsMap));
+
+            post("/stats/shards/bot/all", (req, res) -> {
+                JSONObject obj = new  JSONObject(req.body());
+                long botId = obj.getLong("bot_id");
+
+                Map<Integer, ShardStats> stats = shardStatsMap.get(botId);
+                if(stats == null) {
+                    return new JSONObject()
+                            .put("message", "No element on shard map for the specified bot id.")
+                            .toString();
+                }
+
+                return new JSONObject(stats);
+            });
+
+            post("/stats/shards/bot/specific", (req, res) -> {
+                JSONObject obj = new  JSONObject(req.body());
+                long botId = obj.getLong("bot_id");
+                int shardId = obj.getInt("shard_id");
+
+                Map<Integer, ShardStats> stats = shardStatsMap.get(botId);
+                if(stats == null) {
+                    return new JSONObject()
+                            .put("message", "No element on shard map for the specified bot id.")
+                            .toString();
+                }
+
+                ShardStats shardStats = stats.get(shardId);
+                if(shardStats == null) {
+                    return new JSONObject()
+                            .put("message", "No element on shard map for the specified shard id.")
+                            .toString();
+                }
+
+                return new JSONObject(shardStats);
+            });
         });
     }
 

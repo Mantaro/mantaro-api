@@ -17,59 +17,49 @@
 package net.kodehawa.mantaroapi.bot;
 
 public class ShardStats {
-    private ShardType type;
-    private int guilds;
-    private int users;
-    private int ping;
-    private int queue;
-    private int eventTime;
+    private String status;
+    private long guilds;
+    private long users;
+    private long ping;
+    private long eventTime;
 
-    public ShardType getType() {
-        return type;
+    public String getStatus() {
+        return status;
     }
 
-    public void setType(ShardType type) {
-        this.type = type;
+    public void setStatus(String status) {
+        this.status = status;
     }
 
-    public int getPing() {
+    public long getPing() {
         return ping;
     }
 
-    public void setPing(int ping) {
+    public void setPing(long ping) {
         this.ping = ping;
     }
 
-    public int getQueue() {
-        return queue;
-    }
-
-    public void setQueue(int queue) {
-        this.queue = queue;
-    }
-
-    public int getEventTime() {
+    public long getEventTime() {
         return eventTime;
     }
 
-    public void setEventTime(int eventTime) {
+    public void setEventTime(long eventTime) {
         this.eventTime = eventTime;
     }
 
-    public int getGuilds() {
+    public long getGuilds() {
         return guilds;
     }
 
-    public void setGuilds(int guilds) {
+    public void setGuilds(long guilds) {
         this.guilds = guilds;
     }
 
-    public int getUsers() {
+    public long getUsers() {
         return users;
     }
 
-    public void setUsers(int users) {
+    public void setUsers(long users) {
         this.users = users;
     }
-
 }
