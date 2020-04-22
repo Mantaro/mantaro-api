@@ -80,12 +80,12 @@ public class MantaroAPI {
         }
 
         //Load current pledges, if necessary.
-        Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config));
+        Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config, false));
 
         //Check pledges every x days, if enabled.
         if(config.isConstantCheck()) {
             Executors.newSingleThreadScheduledExecutor().scheduleAtFixedRate(() ->
-                    PledgeLoader.checkPledges(logger, config), config.getConstantCheckDelay(), config.getConstantCheckDelay(), TimeUnit.DAYS
+                    PledgeLoader.checkPledges(logger, config, true), config.getConstantCheckDelay(), config.getConstantCheckDelay(), TimeUnit.DAYS
             );
         }
 
@@ -153,7 +153,7 @@ public class MantaroAPI {
             get("/splashes/random", (req, res) -> new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString());
 
             get("/patreon/refresh", (req, res) -> {
-                Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config));
+                Executors.newSingleThreadExecutor().submit(() -> PledgeLoader.checkPledges(logger, config, true));
                 return "{\"status\":\"ok\"}";
             });
 

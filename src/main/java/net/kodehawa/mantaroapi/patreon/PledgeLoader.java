@@ -25,12 +25,13 @@ import org.slf4j.Logger;
 import java.util.List;
 
 public class PledgeLoader {
-    public static void checkPledges(Logger logger, Config config) {
-        if (config.checkOldPatrons()) {
+    public static void checkPledges(Logger logger, Config config, boolean force) {
+        if (config.checkOldPatrons() || force) {
             try {
+                logger.info("Checking pledges...");
                 PatreonAPI patreonAPI = new PatreonAPI(config.getPatreonToken());
                 List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
-                System.out.println("Total pledges: " + pledges.size());
+                logger.info("Total pledges: " + pledges.size());
 
                 for (Pledge pledge : pledges) {
                     String declinedSince = pledge.getDeclinedSince();
