@@ -71,7 +71,6 @@ public class MantaroAPI {
                 "||       \\_\\_\\_\\ \\_|  |_/\\__,_|_| |_|\\__\\__,_|_|  \\___/\\____/ \\___/ \\__| /_/_/_/       ||\n" +
                 "\n" +
                 ":: Mantaro API {} :: Made by Kodehawa ::\n", version);
-
         try {
             config = Utils.loadConfig();
         } catch (IOException e) {
