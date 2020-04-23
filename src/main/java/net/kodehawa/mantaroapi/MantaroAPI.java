@@ -36,7 +36,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import static spark.Spark.*;
 
@@ -221,14 +220,20 @@ public class MantaroAPI {
 
             get("/stats/shardinfo", (req, res) -> new JSONObject(shardStatsMap));
 
-            get("/stats/shards/combined", (req, res) -> {
-                Stream<ShardStats> shardStatsStream = shardStatsMap.values()
-                        .stream()
-                        .flatMap(stats -> stats.values().stream());
+            post("/stats/shards/combined", (req, res) -> {
+                JSONObject obj = new  JSONObject(req.body());
+                long botId = obj.getLong("bot_id");
+
+                Map<Integer, ShardStats> stats = shardStatsMap.get(botId);
+                if(stats == null) {
+                    return new JSONObject()
+                            .put("message", "No element on shard map for the specified bot id.")
+                            .toString();
+                }
 
                 return new JSONObject()
-                        .put("guilds", shardStatsStream.mapToLong(ShardStats::getGuilds).sum())
-                        .put("users", shardStatsStream.mapToLong(ShardStats::getUsers).sum());
+                        .put("guilds", stats.values().stream().mapToLong(ShardStats::getGuilds).sum())
+                        .put("users", stats.values().stream().mapToLong(ShardStats::getUsers).sum());
             });
 
             post("/stats/shards/bot/all", (req, res) -> {
