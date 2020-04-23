@@ -36,6 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
 
 import static spark.Spark.*;
 
@@ -219,6 +220,16 @@ public class MantaroAPI {
             });
 
             get("/stats/shardinfo", (req, res) -> new JSONObject(shardStatsMap));
+
+            get("/stats/shards/combined", (req, res) -> {
+                Stream<ShardStats> shardStatsStream = shardStatsMap.values()
+                        .stream()
+                        .flatMap(stats -> stats.values().stream());
+
+                return new JSONObject()
+                        .put("guilds", shardStatsStream.mapToLong(ShardStats::getGuilds).sum())
+                        .put("users", shardStatsStream.mapToLong(ShardStats::getUsers).sum());
+            });
 
             post("/stats/shards/bot/all", (req, res) -> {
                 JSONObject obj = new  JSONObject(req.body());
