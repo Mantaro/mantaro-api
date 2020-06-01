@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2016-2020 David Alejandro Rubio Escares / Kodehawa
+ * Copyright (C) 2016-2020 David Rubio Escares / Kodehawa
  *
  *  Mantaro is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * Mantaro is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  (at your option) any later version.
+ *  Mantaro is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
@@ -21,13 +21,15 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.kodehawa.mantaroapi.utils.Config;
 import net.kodehawa.mantaroapi.utils.Utils;
+import org.apache.commons.codec.digest.HmacAlgorithms;
 import org.apache.commons.codec.digest.HmacUtils;
 import org.slf4j.Logger;
 
 import java.security.MessageDigest;
 import java.util.Iterator;
 
-import static spark.Spark.*;
+import static spark.Spark.halt;
+import static spark.Spark.post;
 
 public class PatreonReceiver {
     private final JsonParser parser = new JsonParser();
@@ -45,7 +47,7 @@ public class PatreonReceiver {
                 return "";
             }
 
-            final String hmac = HmacUtils.hmacMd5Hex(config.getPatreonSecret(), body);
+            final String hmac = new HmacUtils(HmacAlgorithms.HMAC_MD5, config.getPatreonSecret()).hmacHex(body);
             if(!MessageDigest.isEqual(hmac.getBytes(), signature.getBytes())) {
                 logger.warn("Patreon webhook signature was invalid! Probably fake / invalid request.");
                 halt(401);

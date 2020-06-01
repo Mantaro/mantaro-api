@@ -1,12 +1,12 @@
 /*
- * Copyright (C) 2016-2020 David Alejandro Rubio Escares / Kodehawa
+ * Copyright (C) 2016-2020 David Rubio Escares / Kodehawa
  *
  *  Mantaro is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
- * (at your option) any later version.
- * Mantaro is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  (at your option) any later version.
+ *  Mantaro is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
  *
@@ -16,7 +16,6 @@
 
 package net.kodehawa.mantaroapi;
 
-import net.kodehawa.mantaroapi.bot.ShardStats;
 import net.kodehawa.mantaroapi.entities.AnimeData;
 import net.kodehawa.mantaroapi.entities.PokemonData;
 import net.kodehawa.mantaroapi.patreon.PatreonReceiver;
@@ -33,7 +32,10 @@ import spark.Spark;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
@@ -45,7 +47,6 @@ public class MantaroAPI {
     private final List<PokemonData> pokemon = new ArrayList<>();
     private final List<AnimeData> anime = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
-    private final Map<Long, Map<Integer, ShardStats>> shardStatsMap = new HashMap<>();
 
     private final Random r = new Random();
     private JSONObject hush; //hush there, I know you're looking .w.
@@ -190,86 +191,6 @@ public class MantaroAPI {
                 }
 
                 return new JSONObject().put("hush", answer);
-            });
-
-            post("/stats/shards", (req, res) -> {
-                try {
-                    JSONObject object = new JSONObject(req.body());
-                    long botId = object.getLong("bot_id");
-                    int shardId = object.getInt("shard_id");
-                    JSONObject shardInfo = object.getJSONObject("shard_info");
-
-                    ShardStats stats = new ShardStats();
-
-                    stats.setGuilds(shardInfo.getLong("guilds"));
-                    stats.setUsers(shardInfo.getLong("users"));
-                    stats.setPing(shardInfo.getLong("ping"));
-                    stats.setEventTime(shardInfo.getLong("event_time"));
-
-
-                    shardStatsMap.put(botId, Map.of(shardId, stats));
-                    return "{\"status\":\"ok\"}";
-                } catch (JSONException e) {
-                    e.printStackTrace();
-
-                    return new JSONObject()
-                            .put("message", "Error parsing JSON data. See API logs.")
-                            .toString();
-                }
-            });
-
-            get("/stats/shardinfo", (req, res) -> new JSONObject(shardStatsMap));
-
-            post("/stats/shards/combined", (req, res) -> {
-                JSONObject obj = new  JSONObject(req.body());
-                long botId = obj.getLong("bot_id");
-
-                Map<Integer, ShardStats> stats = shardStatsMap.get(botId);
-                if(stats == null) {
-                    return new JSONObject()
-                            .put("message", "No element on shard map for the specified bot id.")
-                            .toString();
-                }
-
-                return new JSONObject()
-                        .put("guilds", stats.values().stream().mapToLong(ShardStats::getGuilds).sum())
-                        .put("users", stats.values().stream().mapToLong(ShardStats::getUsers).sum());
-            });
-
-            post("/stats/shards/bot/all", (req, res) -> {
-                JSONObject obj = new  JSONObject(req.body());
-                long botId = obj.getLong("bot_id");
-
-                Map<Integer, ShardStats> stats = shardStatsMap.get(botId);
-                if(stats == null) {
-                    return new JSONObject()
-                            .put("message", "No element on shard map for the specified bot id.")
-                            .toString();
-                }
-
-                return new JSONObject(stats);
-            });
-
-            post("/stats/shards/bot/specific", (req, res) -> {
-                JSONObject obj = new  JSONObject(req.body());
-                long botId = obj.getLong("bot_id");
-                int shardId = obj.getInt("shard_id");
-
-                Map<Integer, ShardStats> stats = shardStatsMap.get(botId);
-                if(stats == null) {
-                    return new JSONObject()
-                            .put("message", "No element on shard map for the specified bot id.")
-                            .toString();
-                }
-
-                ShardStats shardStats = stats.get(shardId);
-                if(shardStats == null) {
-                    return new JSONObject()
-                            .put("message", "No element on shard map for the specified shard id.")
-                            .toString();
-                }
-
-                return new JSONObject(shardStats);
             });
         });
     }
