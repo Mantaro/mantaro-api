@@ -35,7 +35,6 @@ public class PledgeLoader {
 
                 for (Pledge pledge : pledges) {
                     String declinedSince = pledge.getDeclinedSince();
-                    //logger.info("Pledge email {}: declined: {}, discordId {}", pledge.getPatron().getEmail(), declinedSince, discordId);
 
                     if (declinedSince == null) {
                         String discordId = pledge.getPatron().getDiscordId();
@@ -47,6 +46,10 @@ public class PledgeLoader {
                             Utils.accessRedis(jedis -> {
                                 if (jedis.hexists("donators", discordId))
                                     return null;
+
+                                logger.info("Processed new: Pledge email {}: declined: {}, discordId {}",
+                                        pledge.getPatron().getEmail(), declinedSince, discordId
+                                );
 
                                 return jedis.hset("donators", discordId, String.valueOf(amountDollars));
                             });
