@@ -12,6 +12,9 @@ Usually this includes
 
 The rest of the inter-node and inter-bot communication is done in Redis.
 
+The data for the Pokemon and Character game is not shared here and is not gonna be made public as this leads to userbot abuse (say, match the image url to a pokemon and answer automatically). Don't ask for it.
+
+
 ## Legal Stuff
 
 Copyright (C) 2016-2020 **David Rubio Escares** / **Kodehawa**
