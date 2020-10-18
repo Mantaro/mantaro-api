@@ -1,9 +1,19 @@
 # Mantaro's API
-Mantaro API: Pokémon, Character and Hush Achievements Wrapper
 
-This is quite wonky and hacky, but that's all I got on here. Thanks for passing by!
+This handles all of Mantaro's games and works as a bridge between the different instances of the bot to get shared data
 
-Copyright (C) 2016-2019 **David Rubio Escares** / **Kodehawa**
+Usually this includes
+- Splashes
+- Pokemon Game
+- Character Game
+- "Hush" / Secret Achievements
+- Patreon handling (Receive pledge data, refresh pledges)
+
+
+The rest of the inter-node and inter-bot communication is done in Redis.
+
+
+Copyright (C) 2016-2020 **David Rubio Escares** / **Kodehawa**
 
 ```
 This program is free software: you can redistribute it and/or modify it under the terms of the 
