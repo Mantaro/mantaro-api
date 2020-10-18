@@ -1,4 +1,4 @@
-# Mantaro's API
+## Mantaro's API
 
 This handles all of Mantaro's games and works as a bridge between the different instances of the bot to get shared data
 
@@ -12,6 +12,7 @@ Usually this includes
 
 The rest of the inter-node and inter-bot communication is done in Redis.
 
+## Legal Stuff
 
 Copyright (C) 2016-2020 **David Rubio Escares** / **Kodehawa**
 
