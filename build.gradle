@@ -14,6 +14,8 @@
  * along with Mantaro.  If not, see http://www.gnu.org/licenses/
  */
 
+import org.apache.tools.ant.filters.ReplaceTokens
+
 //Plugins
 plugins {
     //Compiles Java
@@ -21,15 +23,47 @@ plugins {
     //Adds an Executable Manifest
     id 'application'
     //Creates FatJars
-    id 'com.github.johnrengelman.shadow' version '5.1.0'
+    id 'com.github.johnrengelman.shadow' version '6.0.0'
 }
 
 archivesBaseName = 'MantaroAPI'
 group 'kodehawa'
-version '2.1.0'
-sourceCompatibility = 1.8
-targetCompatibility = 1.8
+def ver = new Version(major: 2, minor: 2, revision: 0)
+version ver.toString()
+sourceCompatibility = 11
+targetCompatibility = 11
 mainClassName = "net.kodehawa.mantaroapi.MantaroAPI"
+
+def lint = [
+        "auxiliaryclass",
+        "cast",
+        "classfile",
+        "deprecation",
+        "dep-ann",
+        "divzero",
+        "empty",
+        "exports",
+        "fallthrough",
+        "finally",
+        "module",
+        "opens",
+        "options",
+        "overloads",
+        "overrides",
+        "path",
+        //removed because of "No processor claimed any of these annotations: ..."
+        //"processing",
+        "rawtypes",
+        "removal",
+        "requires-automatic",
+        "requires-transitive-automatic",
+        "serial",
+        "static",
+        "try",
+        "unchecked",
+        "varargs",
+        "preview"
+]
 
 repositories {
     mavenCentral()
@@ -42,17 +76,16 @@ tasks.withType(JavaCompile) {
 }
 
 dependencies {
-    compile 'com.sparkjava:spark-core:2.7.2'
-    compile 'ch.qos.logback:logback-classic:1.2.3'
-    compile 'com.github.adamint:patreon-java:417322b'
-    compile group: 'org.json', name: 'json', version: '20171018'
-    compile group: 'commons-io', name: 'commons-io', version: '2.4'
-    compile group: 'commons-codec', name: 'commons-codec', version: '1.11'
-    compile group: 'com.google.code.gson', name: 'gson', version: '2.8.5'
-    compile group: 'redis.clients', name: 'jedis', version: '2.9.0'
-    compile group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.11.0'
-    testCompile group: 'junit', name: 'junit', version: '4.12'
-
+    implementation 'com.sparkjava:spark-core:2.9.3'
+    implementation 'ch.qos.logback:logback-classic:1.2.3'
+    implementation ('com.github.adamint:patreon-java:417322b') { exclude group: 'org.slf4j' }
+    implementation group: 'org.json', name: 'json', version: '20200518'
+    implementation group: 'commons-io', name: 'commons-io', version: '2.8.0'
+    implementation group: 'commons-codec', name: 'commons-codec', version: '1.11'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.6'
+    implementation group: 'redis.clients', name: 'jedis', version: '3.3.0'
+    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.14.9'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.1'
 }
 
 build.dependsOn shadowJar
@@ -61,18 +94,68 @@ artifacts {
     archives shadowJar
 }
 
+def gitRevision() {
+    def gitVersion = new ByteArrayOutputStream()
+    exec {
+        commandLine("git", "rev-parse", "--short", "HEAD")
+        standardOutput = gitVersion
+    }
+
+    return gitVersion.toString().trim()
+}
+
+
+task sourcesForRelease(type: Copy) {
+    from ('src/main/java') {
+        include '**/APIInfo.java'
+        filter(ReplaceTokens, tokens: [
+                version: ver.toString(),
+                revision: gitRevision().toString()
+        ])
+    }
+    into 'build/filteredSrc'
+
+    includeEmptyDirs = false
+}
+
+task generateJavaSources(type: SourceTask) {
+    def javaSources = sourceSets.main.allJava.filter {
+        it.name != 'APIInfo.java'
+    }
+    source = javaSources + sourcesForRelease.destinationDir
+
+    dependsOn sourcesForRelease
+}
+
+compileJava {
+    source = generateJavaSources.source
+    classpath = sourceSets.main.compileClasspath
+    options.compilerArgs += ["-Xlint:${lint.join(",")}"]
+
+    dependsOn generateJavaSources
+}
+
+
 task cleanDistTar(type: Delete) { delete files(distTar) }
-distTar { classifier = "trash" }
+distTar { archiveClassifier.set("trash") }
 distTar.finalizedBy cleanDistTar
 
 task cleanDistZip(type: Delete) { delete files(distZip) }
-distZip { classifier = "trash" }
+distZip { archiveClassifier.set("trash") }
 distZip.finalizedBy cleanDistZip
 
 task cleanUnshadedJar(type: Delete) { delete files(jar) }
-jar { classifier = "trash" }
+jar { archiveClassifier.set("trash") }
 jar.finalizedBy cleanUnshadedJar
 
 shadowJar {
-    classifier = ""
+    archiveClassifier.set(null)
+}
+
+class Version {
+    String major, minor, revision
+
+    String toString() {
+        "${major}.${minor}.${revision}"
+    }
 }

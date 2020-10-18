@@ -43,7 +43,6 @@ import static spark.Spark.*;
 
 public class MantaroAPI {
     private final Logger logger = LoggerFactory.getLogger(MantaroAPI.class);
-    private final String version = "2.1.0";
     private final List<PokemonData> pokemon = new ArrayList<>();
     private final List<AnimeData> anime = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
@@ -71,7 +70,7 @@ public class MantaroAPI {
                 "||      \\ \\ \\ \\  | |  | | (_| | | | | || (_| | | | (_) | |_/ / (_) | |_   / / / /      ||\n" +
                 "||       \\_\\_\\_\\ \\_|  |_/\\__,_|_| |_|\\__\\__,_|_|  \\___/\\____/ \\___/ \\__| /_/_/_/       ||\n" +
                 "\n" +
-                ":: Mantaro API {} :: Made by Kodehawa ::\n", version);
+                ":: Mantaro API {} ({}):: Made by Kodehawa ::\n", APIInfo.VERSION, APIInfo.GIT_REVISION);
         try {
             config = Utils.loadConfig();
         } catch (IOException e) {
@@ -92,7 +91,7 @@ public class MantaroAPI {
         //Read text/json files containing information related to what the API serves.
         readFiles();
 
-        //Spart initialization.
+        //Spark initialization.
         port(config.getPort());
         Spark.init();
 
@@ -101,7 +100,8 @@ public class MantaroAPI {
 
         get("/mantaroapi/ping", (req, res) ->
                 new JSONObject().put("status", "ok")
-                        .put("version", version)
+                        .put("version", APIInfo.VERSION)
+                        .put("rev", APIInfo.GIT_REVISION)
                         .put("requests_served", servedRequests)
                         .toString()
         );

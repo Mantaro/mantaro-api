@@ -32,8 +32,6 @@ import static spark.Spark.halt;
 import static spark.Spark.post;
 
 public class PatreonReceiver {
-    private final JsonParser parser = new JsonParser();
-
     public PatreonReceiver(Logger logger, Config config) {
         //Handle patreon webhooks.
         post("/mantaroapi/patreon", (req, res) -> {
@@ -59,7 +57,7 @@ public class PatreonReceiver {
 
             // Events are pledges:{create,update,delete}
             final String patreonEvent = req.headers("X-Patreon-Event");
-            final JsonObject json = parser.parse(body).getAsJsonObject();
+            final JsonObject json = JsonParser.parseString(body).getAsJsonObject();
 
             //what the fuck
             final String patronId = json
