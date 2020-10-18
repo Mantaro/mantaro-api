@@ -1,6 +1,6 @@
 ## Mantaro's API
 
-This handles all of Mantaro's games and works as a bridge between the different instances of the bot to get shared data
+This handles all of [Mantaro's](https://github.com/Mantaro/MantaroBot) games and works as a bridge between the different instances of the bot to get shared data
 
 Usually this includes
 - Splashes
