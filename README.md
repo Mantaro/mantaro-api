@@ -1,5 +1,4 @@
 ## Mantaro's API
-
 This handles all of [Mantaro's](https://github.com/Mantaro/MantaroBot) games and works as a bridge between the different instances of the bot to get shared data
 
 Usually this includes
@@ -12,6 +11,8 @@ Usually this includes
 
 The rest of the inter-node and inter-bot communication is done in Redis.
 
+
+### Game data 
 The data for the Pokemon and Character game is not shared here and is not gonna be made public as this leads to userbot abuse (say, match the image url to a pokemon and answer automatically). Don't ask for it.
 
 To be fair, it's just a text file with the following, repeated a few thousand times:
@@ -21,7 +22,6 @@ imageurl,name
 
 
 ## Legal Stuff
-
 Copyright (C) 2016-2020 **David Rubio Escares** / **Kodehawa**
 
 ```
