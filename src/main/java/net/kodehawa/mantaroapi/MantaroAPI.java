@@ -44,7 +44,7 @@ import static spark.Spark.*;
 public class MantaroAPI {
     private final Logger logger = LoggerFactory.getLogger(MantaroAPI.class);
     private final List<PokemonData> pokemon = new ArrayList<>();
-    private final List<AnimeData> anime = new ArrayList<>();
+    private final List<AnimeData> characters = new ArrayList<>();
     private final List<String> splashes = new ArrayList<>();
 
     private final Random r = new Random();
@@ -134,10 +134,29 @@ public class MantaroAPI {
                 }
             });
 
+            get("/pokemon/info", (req, res) -> {
+                return new JSONObject()
+                        .put("available", pokemon.size())
+                        .toString();
+            });
+
+
+            get("/splash/info", (req, res) -> {
+                return new JSONObject()
+                        .put("available", splashes.size())
+                        .toString();
+            });
+
+            get("/character/info", (req, res) -> {
+                return new JSONObject()
+                        .put("available", characters.size())
+                        .toString();
+            });
+
             get("/character", (req, res) -> {
                 try {
                     logger.debug("Retrieving anime data << anime_data.txt");
-                    AnimeData animeData = anime.get(r.nextInt(anime.size()));
+                    AnimeData animeData = characters.get(r.nextInt(characters.size()));
                     String name = animeData.getName();
                     String image = animeData.getUrl();
 
@@ -224,7 +243,7 @@ public class MantaroAPI {
                 String[] data = s.replace("\r", "").split(";");
                 String name = data[0];
                 String image = data[1];
-                anime.add(new AnimeData(name, image));
+                characters.add(new AnimeData(name, image));
             }
         } else {
             logger.error("Error loading anime data!");
