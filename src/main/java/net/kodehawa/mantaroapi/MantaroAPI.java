@@ -119,7 +119,6 @@ public class MantaroAPI {
 
             get("/pokemon", (req, res) -> {
                 try {
-                    logger.debug("Retrieving pokemon data << pokemon_data.txt");
                     PokemonData pokemonData = pokemon.get(r.nextInt(pokemon.size()));
                     String image = pokemonData.getUrl();
                     String[] names = pokemonData.getNames();
@@ -130,13 +129,13 @@ public class MantaroAPI {
                             .put("image", image)
                             .toString();
                 } catch (Exception e) {
+                    res.status(500);
                     return new JSONObject().put("error", e.getMessage()).toString();
                 }
             });
 
             get("/character", (req, res) -> {
                 try {
-                    logger.debug("Retrieving anime data << anime_data.txt");
                     AnimeData animeData = characters.get(r.nextInt(characters.size()));
                     String name = animeData.getName();
                     String image = animeData.getUrl();
@@ -146,6 +145,7 @@ public class MantaroAPI {
                             .put("image", image)
                             .toString();
                 } catch (Exception e) {
+                    res.status(500);
                     return new JSONObject().put("error", e.getMessage()).toString();
                 }
             });
@@ -207,6 +207,7 @@ public class MantaroAPI {
                 try {
                     answer = hush.getJSONObject(type).getString(name.replace(" ", "_"));
                 } catch (JSONException e) {
+                    res.status(500);
                     answer = "NONE";
                 }
 
