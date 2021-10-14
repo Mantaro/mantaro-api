@@ -83,7 +83,7 @@ public class Utils {
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
             while((read = fis.read(buffer)) != -1)
                 baos.write(buffer, 0, read);
-            obj = new JSONObject(new String(baos.toByteArray(), Charset.defaultCharset()));
+            obj = new JSONObject(baos.toString(Charset.defaultCharset()));
         }
 
         cfg.setPatreonSecret(obj.getString("patreon_secret"));

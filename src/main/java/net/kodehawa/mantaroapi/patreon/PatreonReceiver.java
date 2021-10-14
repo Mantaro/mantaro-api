@@ -23,6 +23,7 @@ import net.kodehawa.mantaroapi.utils.Config;
 import net.kodehawa.mantaroapi.utils.Utils;
 import org.apache.commons.codec.digest.HmacAlgorithms;
 import org.apache.commons.codec.digest.HmacUtils;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 
 import java.security.MessageDigest;
@@ -31,6 +32,7 @@ import java.util.Iterator;
 import static spark.Spark.halt;
 import static spark.Spark.post;
 
+// This is painful...
 public class PatreonReceiver {
     public PatreonReceiver(Logger logger, Config config) {
         //Handle patreon webhooks.
@@ -64,6 +66,14 @@ public class PatreonReceiver {
                     .get("data").getAsJsonObject()
                     .get("relationships").getAsJsonObject()
                     .get("patron").getAsJsonObject()
+                    .get("data").getAsJsonObject()
+                    .get("id").getAsString();
+
+            //what the fuck part 2
+            final String pledgeReward = json
+                    .get("data").getAsJsonObject()
+                    .get("relationships").getAsJsonObject()
+                    .get("reward").getAsJsonObject()
                     .get("data").getAsJsonObject()
                     .get("id").getAsString();
 
@@ -105,14 +115,35 @@ public class PatreonReceiver {
                         case "pledges:create":
                         case "pledges:update":
                             // pledge updated / created, we need to set it on both cases.
+                            if (pledgeReward == null) {
+                                logger.error("Unknown reward. Can't find it?");
+                                return null;
+                            }
+
+                            long tier = Long.parseLong(pledgeReward);
+                            // Why does this exist?
+                            if (tier == 0 || tier == -1) {
+                                logger.error("Unknown tier reward for {} (tier == 0 | tier == -1)", discordUserId);
+                                return null;
+                            }
+
+                            var patreonReward = PatreonReward.fromId(tier);
+                            if (patreonReward == null) {
+                                logger.error("Unknown reward? Can't convert to enum! {}", tier);
+                                return null;
+                            }
+
+                            var pledgeObject = new PatreonPledge(pledgeAmountDollars, patreonReward);
                             Utils.accessRedis(jedis ->
-                                    jedis.hset("donators", discordUserId, String.valueOf(pledgeAmountDollars))
+                                    jedis.hset("donators", discordUserId, new JSONObject(pledgeObject).toString())
                             );
+
                             break;
                         case "pledges:delete":
                             Utils.accessRedis(jedis ->
                                     jedis.hdel("donators", discordUserId)
                             );
+
                             break;
                         default:
                             logger.info("Got unknown patreon event for Discord user: {}", patreonEvent);

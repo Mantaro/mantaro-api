@@ -18,8 +18,10 @@ package net.kodehawa.mantaroapi.patreon;
 
 import com.patreon.PatreonAPI;
 import com.patreon.models.Pledge;
+import com.patreon.models.Reward;
 import net.kodehawa.mantaroapi.utils.Config;
 import net.kodehawa.mantaroapi.utils.Utils;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 
 import java.util.List;
@@ -30,6 +32,14 @@ public class PledgeLoader {
             try {
                 logger.info("Checking pledges...");
                 PatreonAPI patreonAPI = new PatreonAPI(config.getPatreonToken());
+
+                // This is for debugging reasons. Patreon's API is as painful as it gets.
+                var rewards = patreonAPI.fetchCampaigns().get().get(0).getRewards();
+                logger.info("Printing current known rewards:");
+                for (Reward r : rewards) {
+                    System.out.println(r.getId() + " " + r.getTitle());
+                }
+
                 List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
                 logger.info("Total pledges: " + pledges.size());
 
@@ -41,17 +51,34 @@ public class PledgeLoader {
 
                         //come on guys, use integrations
                         if (discordId != null) {
-                            double amountDollars = pledge.getAmountCents() / 100D;
-                            logger.info("Processed pledge for {} for ${} (dollars)", discordId, amountDollars);
-                            Utils.accessRedis(jedis -> {
-                                if (jedis.hexists("donators", discordId))
-                                    return null;
+                            double amount = pledge.getAmountCents() / 100D;
+                            var reward = pledge.getReward();
+                            if (reward == null) {
+                                logger.error("Unknown tier reward for {}", discordId);
+                                return;
+                            }
 
+                            long tier = Long.parseLong(reward.getId());
+                            if (tier == 0 || tier == -1) {
+                                logger.error("Unknown tier reward for {} (tier == 0 | tier == -1)", discordId);
+                                return;
+                            }
+
+                            var tierName = reward.getTitle();
+                            logger.info("Processed pledge for {} for ${} | Tier: {} / {}", discordId, amount, tier, tierName);
+                            Utils.accessRedis(jedis -> {
                                 logger.info("Processed new: Pledge email {}: declined: {}, discordId {}",
                                         pledge.getPatron().getEmail(), declinedSince, discordId
                                 );
 
-                                return jedis.hset("donators", discordId, String.valueOf(amountDollars));
+                                var patreonReward = PatreonReward.fromId(tier);
+                                if (patreonReward == null) {
+                                    logger.error("Unknown reward? Can't convert to enum! {}", tier);
+                                    return null;
+                                }
+
+                                var pledgeObject = new PatreonPledge(amount, patreonReward);
+                                return jedis.hset("donators", discordId, new JSONObject(pledgeObject).toString());
                             });
                         }
                     } else {

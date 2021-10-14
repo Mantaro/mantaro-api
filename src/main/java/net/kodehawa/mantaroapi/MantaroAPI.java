@@ -151,24 +151,18 @@ public class MantaroAPI {
             });
 
 
-            get("/pokemon/info", (req, res) -> {
-                return new JSONObject()
-                        .put("available", pokemon.size())
-                        .toString();
-            });
+            get("/pokemon/info", (req, res) -> new JSONObject()
+                    .put("available", pokemon.size())
+                    .toString());
 
 
-            get("/splashes/info", (req, res) -> {
-                return new JSONObject()
-                        .put("available", splashes.size())
-                        .toString();
-            });
+            get("/splashes/info", (req, res) -> new JSONObject()
+                    .put("available", splashes.size())
+                    .toString());
 
-            get("/character/info", (req, res) -> {
-                return new JSONObject()
-                        .put("available", characters.size())
-                        .toString();
-            });
+            get("/character/info", (req, res) -> new JSONObject()
+                    .put("available", characters.size())
+                    .toString());
 
             get("/splashes/random", (req, res) -> new JSONObject().put("splash", splashes.get(r.nextInt(splashes.size()))).toString());
 
