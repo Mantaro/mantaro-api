@@ -1,8 +1,6 @@
 package net.kodehawa.mantaroapi.patreon;
 
 public enum PatreonReward {
-    // Patreon doesn't have an ID for pledge names??
-    // Why do I have to type the LITERAL NAME.
     SUPPORTER(1487355),
     FRIEND(1487342),
     PATREON_BOT(1700160),
