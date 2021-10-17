@@ -77,7 +77,7 @@ public class PledgeLoader {
                                     return null;
                                 }
 
-                                var pledgeObject = new PatreonPledge(amount, patreonReward);
+                                var pledgeObject = new PatreonPledge(amount, true, patreonReward);
                                 return jedis.hset("donators", discordId, new JSONObject(pledgeObject).toString());
                             });
                         }

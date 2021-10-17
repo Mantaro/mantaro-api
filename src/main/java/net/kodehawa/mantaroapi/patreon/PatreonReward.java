@@ -1,6 +1,7 @@
 package net.kodehawa.mantaroapi.patreon;
 
 public enum PatreonReward {
+    NONE(-100),
     SUPPORTER(1487355),
     FRIEND(1487342),
     PATREON_BOT(1700160),

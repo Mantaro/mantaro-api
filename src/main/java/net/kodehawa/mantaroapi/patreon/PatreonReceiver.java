@@ -133,7 +133,7 @@ public class PatreonReceiver {
                                 return null;
                             }
 
-                            var pledgeObject = new PatreonPledge(pledgeAmountDollars, patreonReward);
+                            var pledgeObject = new PatreonPledge(pledgeAmountDollars, true, patreonReward);
                             Utils.accessRedis(jedis ->
                                     jedis.hset("donators", discordUserId, new JSONObject(pledgeObject).toString())
                             );

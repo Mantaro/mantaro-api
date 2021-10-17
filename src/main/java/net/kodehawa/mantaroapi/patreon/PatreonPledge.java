@@ -3,10 +3,16 @@ package net.kodehawa.mantaroapi.patreon;
 public class PatreonPledge {
     private double amount;
     private PatreonReward reward;
+    private final boolean active;
 
-    public PatreonPledge(double amount, PatreonReward reward) {
+    public PatreonPledge(double amount, boolean active, PatreonReward reward) {
         this.amount = amount;
         this.reward = reward;
+        this.active = active;
+    }
+
+    public boolean isActive() {
+        return active;
     }
 
     public double getAmount() {

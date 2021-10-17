@@ -16,9 +16,12 @@
 
 package net.kodehawa.mantaroapi;
 
+import com.google.gson.Gson;
 import net.kodehawa.mantaroapi.entities.AnimeData;
 import net.kodehawa.mantaroapi.entities.PokemonData;
+import net.kodehawa.mantaroapi.patreon.PatreonPledge;
 import net.kodehawa.mantaroapi.patreon.PatreonReceiver;
+import net.kodehawa.mantaroapi.patreon.PatreonReward;
 import net.kodehawa.mantaroapi.patreon.PledgeLoader;
 import net.kodehawa.mantaroapi.utils.Config;
 import net.kodehawa.mantaroapi.utils.Utils;
@@ -48,6 +51,7 @@ public class MantaroAPI {
     private final List<String> splashes = new ArrayList<>();
 
     private final Random r = new Random();
+    private static final Gson gson = new Gson();
     private JSONObject hush; //hush there, I know you're looking .w.
     private Config config;
     private int servedRequests;
@@ -171,19 +175,46 @@ public class MantaroAPI {
                 return "{\"status\":\"ok\"}";
             });
 
+            // This is the old way. Maybe so I can test it on MP before pushing to Mantaro
+            // because if something goes wrong here, everything goes wrong.
+            // This basically just returns the amount. The active field is pretty useless, ngl.
             post("/patreon/check", (req, res) -> {
-                JSONObject obj = new  JSONObject(req.body());
-                String id = obj.getString("id");
-                String placeholder = new JSONObject().put("active", false).put("amount", "0").toString();
+                var obj = new  JSONObject(req.body());
+                var id = obj.getString("id");
+                var placeholder = new JSONObject().put("active", false).put("amount", "0").toString();
 
                 return Utils.accessRedis(jedis -> {
                     try {
                         if(!jedis.hexists("donators", id))
                             return placeholder;
 
-                        String amount = jedis.hget("donators", id);
+                        // Using two different JSON libraries to accomplish this is surely peak bullshit.
+                        var json = jedis.hget("donators", id);
+                        var pledge = gson.fromJson(json, PatreonPledge.class);
+                        return new JSONObject().put("active", pledge.isActive()).put("amount", pledge.getAmount());
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                        halt(500);
+                        return placeholder;
+                    }
+                });
+            });
 
-                        return new JSONObject().put("active", true).put("amount", amount).toString();
+            // This returns the entire object, so we can analyze it properly.
+            // Mostly this is here so we can get the tier instead of just the amount, because patreon is
+            // very silly and doesn't give me the amount in USD anymore for international pledges.
+            post("/patreon/checknew", (req, res) -> {
+                var obj = new  JSONObject(req.body());
+                var id = obj.getString("id");
+                var placeholder = new PatreonPledge(0, false, PatreonReward.NONE);
+
+                return Utils.accessRedis(jedis -> {
+                    try {
+                        if(!jedis.hexists("donators", id))
+                            return new JSONObject(placeholder).toString();
+
+                        // We can just return the whole object.
+                        return new JSONObject(jedis.hget("donators", id));
                     } catch (Exception e) {
                         e.printStackTrace();
                         halt(500);
