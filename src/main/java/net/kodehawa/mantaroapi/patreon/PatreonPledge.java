@@ -1,5 +1,8 @@
 package net.kodehawa.mantaroapi.patreon;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class PatreonPledge {
     private double amount;
     private PatreonReward reward;
@@ -30,5 +33,4 @@ public class PatreonPledge {
     public void setReward(PatreonReward reward) {
         this.reward = reward;
     }
-
 }
