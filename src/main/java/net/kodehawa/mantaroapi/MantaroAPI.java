@@ -191,7 +191,8 @@ public class MantaroAPI {
                         // Using two different JSON libraries to accomplish this is surely peak bullshit.
                         var json = jedis.hget("donators", id);
                         var pledge = gson.fromJson(json, PatreonPledge.class);
-                        return new JSONObject().put("active", pledge.isActive()).put("amount", pledge.getAmount());
+                        // Old API endpoint sent a String!
+                        return new JSONObject().put("active", pledge.isActive()).put("amount", Double.toString(pledge.getAmount()));
                     } catch (Exception e) {
                         e.printStackTrace();
                         halt(500);
