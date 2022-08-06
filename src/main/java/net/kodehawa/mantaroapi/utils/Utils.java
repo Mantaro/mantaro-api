@@ -31,7 +31,7 @@ import java.util.function.Function;
 public class Utils {
     private static final Logger logger = LoggerFactory.getLogger(Utils.class);
     private static final JedisPoolConfig poolConfig = buildPoolConfig();
-    private static final JedisPool jedisPool = new JedisPool(poolConfig, "localhost");
+    private static final JedisPool jedisPool = new JedisPool(poolConfig, "redis://localhost:6379");
     private static JedisPoolConfig buildPoolConfig() {
         final JedisPoolConfig poolConfig = new JedisPoolConfig();
         poolConfig.setMaxTotal(128);
@@ -40,8 +40,8 @@ public class Utils {
         poolConfig.setTestOnBorrow(true);
         poolConfig.setTestOnReturn(true);
         poolConfig.setTestWhileIdle(true);
-        poolConfig.setMinEvictableIdleTimeMillis(Duration.ofSeconds(60).toMillis());
-        poolConfig.setTimeBetweenEvictionRunsMillis(Duration.ofSeconds(30).toMillis());
+        poolConfig.setMinEvictableIdleTime(Duration.ofSeconds(60));
+        poolConfig.setTimeBetweenEvictionRuns(Duration.ofSeconds(30));
         poolConfig.setNumTestsPerEvictionRun(3);
         poolConfig.setBlockWhenExhausted(true);
         return poolConfig;

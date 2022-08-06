@@ -25,6 +25,7 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PledgeLoader {
     public static void checkPledges(Logger logger, Config config, boolean force) {
@@ -41,8 +42,7 @@ public class PledgeLoader {
                 }
 
                 List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
-                logger.info("Total pledges: " + pledges.size());
-
+                AtomicInteger active = new AtomicInteger();
                 for (Pledge pledge : pledges) {
                     String declinedSince = pledge.getDeclinedSince();
 
@@ -54,30 +54,33 @@ public class PledgeLoader {
                             double amount = pledge.getAmountCents() / 100D;
                             var reward = pledge.getReward();
                             if (reward == null) {
-                                logger.error("Unknown tier reward for {}", discordId);
+                                logger.error("(!!) Unknown tier reward for {}", discordId);
                                 return;
                             }
 
                             long tier = Long.parseLong(reward.getId());
                             if (tier == 0 || tier == -1) {
-                                logger.error("Unknown tier reward for {} (tier == 0 | tier == -1)", discordId);
+                                logger.error("(!!) Unknown tier reward for {} (tier == 0 | tier == -1)", discordId);
                                 return;
                             }
 
                             var tierName = reward.getTitle();
-                            logger.info("Processed pledge for {} for ${} | Tier: {} / {}", discordId, amount, tier, tierName);
+                            var patreonReward = PatreonReward.fromId(tier);
+                            logger.info("!! Processed pledge for {} for ${} -- Tier: {} ({} / {})", discordId, amount, tier, patreonReward, tierName);
                             Utils.accessRedis(jedis -> {
-                                logger.info("Processed new: Pledge email {}: declined: {}, discordId {}",
-                                        pledge.getPatron().getEmail(), declinedSince, discordId
-                                );
+                                if (jedis.hget("donators", discordId) == null) {
+                                    logger.info("(!!) Processed new: Pledge email {}: declined: {}, discordId {}",
+                                            pledge.getPatron().getEmail(), declinedSince, discordId
+                                    );
+                                }
 
-                                var patreonReward = PatreonReward.fromId(tier);
                                 if (patreonReward == null) {
                                     logger.error("Unknown reward? Can't convert to enum! {}", tier);
                                     return null;
                                 }
 
                                 var pledgeObject = new PatreonPledge(amount, true, patreonReward);
+                                active.getAndIncrement();
                                 return jedis.hset("donators", discordId, new JSONObject(pledgeObject).toString());
                             });
                         }
@@ -95,7 +98,7 @@ public class PledgeLoader {
                     }
                 }
 
-                logger.info("Updated all pledges!");
+                logger.info("(!!!) Updated all pledges! Total active: {}", active.get());
             } catch (Exception e) {
                 e.printStackTrace();
             }

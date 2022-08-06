@@ -28,7 +28,7 @@ plugins {
 
 archivesBaseName = 'MantaroAPI'
 group 'kodehawa'
-def ver = new Version(major: 2, minor: 2, revision: 0)
+def ver = new Version(major: 2, minor: 2, revision: 1)
 version ver.toString()
 sourceCompatibility = 11
 targetCompatibility = 11
@@ -76,16 +76,16 @@ tasks.withType(JavaCompile) {
 }
 
 dependencies {
-    implementation 'com.sparkjava:spark-core:2.9.3'
-    implementation 'ch.qos.logback:logback-classic:1.2.8'
+    implementation 'com.sparkjava:spark-core:2.9.4'
+    implementation 'ch.qos.logback:logback-classic:1.2.11'
     implementation ('com.github.adamint:patreon-java:417322b') { exclude group: 'org.slf4j' }
-    implementation group: 'org.json', name: 'json', version: '20201115'
-    implementation group: 'commons-io', name: 'commons-io', version: '2.8.0'
+    implementation group: 'org.json', name: 'json', version: '20220320'
+    implementation group: 'commons-io', name: 'commons-io', version: '2.11.0'
     implementation group: 'commons-codec', name: 'commons-codec', version: '1.15'
-    implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.6'
-    implementation group: 'redis.clients', name: 'jedis', version: '3.3.0'
-    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '3.14.9'
-    testImplementation group: 'junit', name: 'junit', version: '4.13.1'
+    implementation group: 'com.google.code.gson', name: 'gson', version: '2.9.1'
+    implementation group: 'redis.clients', name: 'jedis', version: '4.2.3'
+    implementation group: 'com.squareup.okhttp3', name: 'okhttp', version: '4.10.0'
+    testImplementation group: 'junit', name: 'junit', version: '4.13.2'
 }
 
 build.dependsOn shadowJar
