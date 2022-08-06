@@ -16,7 +16,6 @@
 
 package net.kodehawa.mantaroapi;
 
-import com.google.gson.Gson;
 import net.kodehawa.mantaroapi.entities.AnimeData;
 import net.kodehawa.mantaroapi.entities.PokemonData;
 import net.kodehawa.mantaroapi.patreon.PatreonPledge;
@@ -51,7 +50,6 @@ public class MantaroAPI {
     private final List<String> splashes = new ArrayList<>();
 
     private final Random r = new Random();
-    private static final Gson gson = new Gson();
     private JSONObject hush; //hush there, I know you're looking .w.
     private Config config;
     private int servedRequests;
@@ -190,9 +188,11 @@ public class MantaroAPI {
 
                         // Using two different JSON libraries to accomplish this is surely peak bullshit.
                         var json = jedis.hget("donators", id);
-                        var pledge = gson.fromJson(json, PatreonPledge.class);
-                        // Old API endpoint sent a String!
-                        return new JSONObject().put("active", pledge.isActive()).put("amount", Double.toString(pledge.getAmount()));
+                        var pledgeJSON = new JSONObject(json);
+                        var active = pledgeJSON.getBoolean("active");
+                        var amount = Double.toString(pledgeJSON.getDouble("amount"));
+
+                        return new JSONObject().put("active", active).put("amount", amount);
                     } catch (Exception e) {
                         e.printStackTrace();
                         halt(500);

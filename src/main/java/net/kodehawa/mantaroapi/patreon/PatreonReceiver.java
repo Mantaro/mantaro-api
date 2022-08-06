@@ -153,6 +153,7 @@ public class PatreonReceiver {
                     logger.info("Null patron object?");
                 }
             } catch(final Exception e) {
+                logger.error("(!!!) Failed to process data, dumping <- {}", body);
                 e.printStackTrace();
             }
 
