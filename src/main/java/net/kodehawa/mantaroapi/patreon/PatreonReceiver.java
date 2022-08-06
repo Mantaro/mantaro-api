@@ -53,7 +53,7 @@ public class PatreonReceiver {
                 halt(401);
                 return "";
             } else {
-                logger.info("Accepted Patreon signed data");
+                logger.info("Accepted Patreon signed data.");
                 logger.debug("Accepted Patreon signed data <- {}", body);
             }
 
@@ -61,76 +61,79 @@ public class PatreonReceiver {
             final String patreonEvent = req.headers("X-Patreon-Event");
             final JsonObject json = JsonParser.parseString(body).getAsJsonObject();
 
-            //what the fuck
-            final String patronId = json
-                    .get("data").getAsJsonObject()
-                    .get("relationships").getAsJsonObject()
-                    .get("patron").getAsJsonObject()
-                    .get("data").getAsJsonObject()
-                    .get("id").getAsString();
-
-            //what the fuck part 2
-            final String pledgeReward = json
-                    .get("data").getAsJsonObject()
-                    .get("relationships").getAsJsonObject()
-                    .get("reward").getAsJsonObject()
-                    .get("data").getAsJsonObject()
-                    .get("id").getAsString();
-
-            final Iterator<JsonElement> included = json
-                    .get("included").getAsJsonArray()
-                    .iterator();
-
-            final long pledgeAmountCents = json
-                    .get("data").getAsJsonObject()
-                    .get("attributes").getAsJsonObject()
-                    .get("amount_cents").getAsLong();
-
-            JsonObject patronObject = null;
-
-            while(included.hasNext()) {
-                final JsonElement next = included.next();
-                final JsonObject includedObject = next.getAsJsonObject();
-                if(includedObject.get("id").getAsString().equals(patronId)) {
-                    patronObject = includedObject;
-                    break;
-                }
-            }
-
             try {
+                //what the fuck
+                final String patronId = json
+                        .get("data").getAsJsonObject()
+                        .get("relationships").getAsJsonObject()
+                        .get("patron").getAsJsonObject()
+                        .get("data").getAsJsonObject()
+                        .get("id").getAsString();
+
+                final Iterator<JsonElement> included = json
+                        .get("included").getAsJsonArray()
+                        .iterator();
+
+                JsonObject patronObject = null;
+                while(included.hasNext()) {
+                    final JsonElement next = included.next();
+                    final JsonObject includedObject = next.getAsJsonObject();
+                    if(includedObject.get("id").getAsString().equals(patronId)) {
+                        patronObject = includedObject;
+                        break;
+                    }
+                }
+
                 if(patronObject != null) {
-                    final String discordUserId = patronObject
+                    final long pledgeAmountCents = json
+                            .get("data").getAsJsonObject()
+                            .get("attributes").getAsJsonObject()
+                            .get("amount_cents").getAsLong();
+
+                    final JsonObject socialConnection = patronObject
                             .get("attributes").getAsJsonObject()
                             .get("social_connections").getAsJsonObject()
-                            .get("discord").getAsJsonObject()
-                            .get("user_id").getAsString();
+                            .get("discord").getAsJsonObject();
 
+                    if (socialConnection == null) {
+                        logger.info("Received Patreon event {}, but without a Discord ID. Cannot process.", patreonEvent);
+                        return "{\"status\":\"ok\"}";
+                    }
+
+                    final String discordUserId = socialConnection.get("user_id").getAsString();
                     double pledgeAmountDollars = pledgeAmountCents / 100D;
-
-                    logger.info("Recv. Patreon event '{}' for Discord user '{}' with amount ${}", patreonEvent,
+                    logger.info("Received Patreon event '{}' for Discord ID '{}' with amount ${}", patreonEvent,
                             discordUserId, String.format("%.2f", pledgeAmountDollars)
                     );
 
                     switch(patreonEvent) {
                         case "pledges:create":
                         case "pledges:update":
+                            //what the fuck part 2
+                            final String pledgeReward = json
+                                    .get("data").getAsJsonObject()
+                                    .get("relationships").getAsJsonObject()
+                                    .get("reward").getAsJsonObject()
+                                    .get("data").getAsJsonObject()
+                                    .get("id").getAsString();
+
                             // pledge updated / created, we need to set it on both cases.
                             if (pledgeReward == null) {
                                 logger.error("Unknown reward. Can't find it?");
-                                return null;
+                                return "{\"status\":\"ok\"}";
                             }
 
                             long tier = Long.parseLong(pledgeReward);
                             // Why does this exist?
                             if (tier == 0 || tier == -1) {
                                 logger.error("Unknown tier reward for {} (tier == 0 | tier == -1)", discordUserId);
-                                return null;
+                                return "{\"status\":\"ok\"}";
                             }
 
                             var patreonReward = PatreonReward.fromId(tier);
                             if (patreonReward == null) {
                                 logger.error("Unknown reward? Can't convert to enum! {}", tier);
-                                return null;
+                                return "{\"status\":\"ok\"}";
                             }
 
                             var pledgeObject = new PatreonPledge(pledgeAmountDollars, true, patreonReward);
@@ -138,6 +141,7 @@ public class PatreonReceiver {
                                     jedis.hset("donators", discordUserId, new JSONObject(pledgeObject).toString())
                             );
 
+                            logger.info("Added pledge data: Discord ID: {}, Pledge tier: {}", discordUserId, patreonReward);
                             break;
                         case "pledges:delete":
                             Utils.accessRedis(jedis ->
@@ -146,7 +150,7 @@ public class PatreonReceiver {
 
                             break;
                         default:
-                            logger.info("Got unknown patreon event for Discord user: {}", patreonEvent);
+                            logger.info("Got unknown patreon event {} for Discord ID: {}", patreonEvent, discordUserId);
                             break;
                     }
                 } else {
