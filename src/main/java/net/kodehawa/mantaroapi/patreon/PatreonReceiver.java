@@ -90,16 +90,19 @@ public class PatreonReceiver {
                             .get("attributes").getAsJsonObject()
                             .get("amount_cents").getAsLong();
 
-                    final JsonObject socialConnection = patronObject
+                    final JsonObject socialConnections = patronObject
                             .get("attributes").getAsJsonObject()
-                            .get("social_connections").getAsJsonObject()
-                            .get("discord").getAsJsonObject();
+                            .get("social_connections").getAsJsonObject();
 
-                    if (socialConnection == null) {
+                    // This might be discord: null if there's nothing. We can't get the JSONObject until we know it's not null
+                    // else we get an exception thrown here.
+                    final JsonElement discordConnection = socialConnections.get("discord");
+                    if (discordConnection == null) {
                         logger.info("Received Patreon event {}, but without a Discord ID. Cannot process.", patreonEvent);
                         return "{\"status\":\"ok\"}";
                     }
 
+                    final JsonObject socialConnection = discordConnection.getAsJsonObject();
                     final String discordUserId = socialConnection.get("user_id").getAsString();
                     double pledgeAmountDollars = pledgeAmountCents / 100D;
                     logger.info("Received Patreon event '{}' for Discord ID '{}' with amount ${}", patreonEvent,
