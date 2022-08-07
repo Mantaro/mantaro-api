@@ -32,7 +32,6 @@ import org.slf4j.LoggerFactory;
 import spark.Spark;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -121,10 +120,11 @@ public class MantaroAPI {
 
             get("/pokemon", (req, res) -> {
                 try {
-                    PokemonData pokemonData = pokemon.get(r.nextInt(pokemon.size()));
-                    String image = pokemonData.getUrl();
+                    var pokemonData = pokemon.get(r.nextInt(pokemon.size()));
+                    var image = pokemonData.getUrl();
+                    var name = pokemonData.getName();
                     String[] names = pokemonData.getNames();
-                    String name = pokemonData.getName();
+
                     return new JSONObject()
                             .put("name", name)
                             .put("names", names)
@@ -138,9 +138,9 @@ public class MantaroAPI {
 
             get("/character", (req, res) -> {
                 try {
-                    AnimeData animeData = characters.get(r.nextInt(characters.size()));
-                    String name = animeData.getName();
-                    String image = animeData.getUrl();
+                    var animeData = characters.get(r.nextInt(characters.size()));
+                    var name = animeData.getName();
+                    var image = animeData.getUrl();
 
                     return new JSONObject()
                             .put("name", name)
@@ -152,11 +152,9 @@ public class MantaroAPI {
                 }
             });
 
-
             get("/pokemon/info", (req, res) -> new JSONObject()
                     .put("available", pokemon.size())
                     .toString());
-
 
             get("/splashes/info", (req, res) -> new JSONObject()
                     .put("available", splashes.size())
@@ -183,7 +181,7 @@ public class MantaroAPI {
 
                 return Utils.accessRedis(jedis -> {
                     try {
-                        if(!jedis.hexists("donators", id))
+                        if (!jedis.hexists("donators", id))
                             return placeholder;
 
                         // Using two different JSON libraries to accomplish this is surely peak bullshit.
@@ -225,9 +223,9 @@ public class MantaroAPI {
             });
 
             post("/hush", (req, res) -> {
-                JSONObject obj = new  JSONObject(req.body());
-                String name = obj.getString("name");
-                String type = obj.getString("type").toLowerCase();
+                var obj = new  JSONObject(req.body());
+                var name = obj.getString("name");
+                var type = obj.getString("type").toLowerCase();
 
                 String answer;
                 try {
@@ -250,13 +248,14 @@ public class MantaroAPI {
 
     public void readFiles() throws IOException {
         logger.info("Reading pokemon data << pokemon_data.txt");
-        InputStream stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
-        if(stream != null) {
-            List<String> pokemonLines = IOUtils.readLines(stream, StandardCharsets.UTF_8);
-            for (String s : pokemonLines) {
-                String[] data = s.replace("\r", "").split("`");
-                String image = data[0];
-                String[] names = Arrays.copyOfRange(data, 1, data.length);
+        var stream = getClass().getClassLoader().getResourceAsStream("pokemon_data.txt");
+        if (stream != null) {
+            var pokemonLines = IOUtils.readLines(stream, StandardCharsets.UTF_8);
+            for (var s : pokemonLines) {
+                var data = s.replace("\r", "").split("`");
+                var names = Arrays.copyOfRange(data, 1, data.length);
+                var image = data[0];
+
                 pokemon.add(new PokemonData(names[0], image, names));
             }
         } else {
@@ -264,13 +263,13 @@ public class MantaroAPI {
         }
 
         logger.info("Reading anime data << anime_data.txt");
-        InputStream animeStream = getClass().getClassLoader().getResourceAsStream("anime_data.txt");
-        if(animeStream != null) {
-            List<String> animeLines = IOUtils.readLines(animeStream, StandardCharsets.UTF_8);
-            for (String s : animeLines) {
-                String[] data = s.replace("\r", "").split(";");
-                String name = data[0];
-                String image = data[1];
+        var animeStream = getClass().getClassLoader().getResourceAsStream("anime_data.txt");
+        if (animeStream != null) {
+            var animeLines = IOUtils.readLines(animeStream, StandardCharsets.UTF_8);
+            for (var s : animeLines) {
+                var data = s.replace("\r", "").split(";");
+                var name = data[0];
+                var image = data[1];
                 characters.add(new AnimeData(name, image));
             }
         } else {
@@ -278,19 +277,19 @@ public class MantaroAPI {
         }
 
         logger.info("Reading hush data << hush.json");
-        InputStream hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
-        if(hushStream != null) {
-            List<String> hushLines = IOUtils.readLines(hushStream, StandardCharsets.UTF_8);
+        var hushStream = getClass().getClassLoader().getResourceAsStream("hush.json");
+        if (hushStream != null) {
+            var hushLines = IOUtils.readLines(hushStream, StandardCharsets.UTF_8);
             hush = new JSONObject(String.join("", hushLines));
         } else {
             logger.error("Error loading hush badges!");
         }
 
         logger.info("Reading splashes data << splashes.txt");
-        InputStream splashesStream = getClass().getClassLoader().getResourceAsStream("splashes.txt");
-        if(splashesStream != null) {
-            List<String> splashesLines = IOUtils.readLines(splashesStream, StandardCharsets.UTF_8);
-            for (String s : splashesLines) {
+        var splashesStream = getClass().getClassLoader().getResourceAsStream("splashes.txt");
+        if (splashesStream != null) {
+            var splashesLines = IOUtils.readLines(splashesStream, StandardCharsets.UTF_8);
+            for (var s : splashesLines) {
                 splashes.add(s.replace("\r", ""));
             }
 

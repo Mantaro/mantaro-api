@@ -17,14 +17,11 @@
 package net.kodehawa.mantaroapi.patreon;
 
 import com.patreon.PatreonAPI;
-import com.patreon.models.Pledge;
-import com.patreon.models.Reward;
 import net.kodehawa.mantaroapi.utils.Config;
 import net.kodehawa.mantaroapi.utils.Utils;
 import org.json.JSONObject;
 import org.slf4j.Logger;
 
-import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PledgeLoader {
@@ -32,22 +29,21 @@ public class PledgeLoader {
         if (config.checkOldPatrons() || force) {
             try {
                 logger.info("Checking pledges...");
-                PatreonAPI patreonAPI = new PatreonAPI(config.getPatreonToken());
+                var patreonAPI = new PatreonAPI(config.getPatreonToken());
 
                 // This is for debugging reasons. Patreon's API is as painful as it gets.
                 var rewards = patreonAPI.fetchCampaigns().get().get(0).getRewards();
                 logger.info("Printing current known rewards:");
-                for (Reward r : rewards) {
+                for (var r : rewards) {
                     System.out.println(r.getId() + " " + r.getTitle());
                 }
 
-                List<Pledge> pledges = patreonAPI.fetchAllPledges("328369");
-                AtomicInteger active = new AtomicInteger();
-                for (Pledge pledge : pledges) {
-                    String declinedSince = pledge.getDeclinedSince();
-
+                var pledges = patreonAPI.fetchAllPledges("328369");
+                var active = new AtomicInteger();
+                for (var pledge : pledges) {
+                    var declinedSince = pledge.getDeclinedSince();
                     if (declinedSince == null) {
-                        String discordId = pledge.getPatron().getDiscordId();
+                        var discordId = pledge.getPatron().getDiscordId();
 
                         //come on guys, use integrations
                         if (discordId != null) {
@@ -58,7 +54,7 @@ public class PledgeLoader {
                                 return;
                             }
 
-                            long tier = Long.parseLong(reward.getId());
+                            var tier = Long.parseLong(reward.getId());
                             if (tier == 0 || tier == -1) {
                                 logger.error("(!!) Unknown tier reward for {} (tier == 0 | tier == -1)", discordId);
                                 return;
@@ -69,9 +65,7 @@ public class PledgeLoader {
                             logger.info("!! Processed pledge for {} for ${} -- Tier: {} ({} / {})", discordId, amount, tier, patreonReward, tierName);
                             Utils.accessRedis(jedis -> {
                                 if (jedis.hget("donators", discordId) == null) {
-                                    logger.info("(!!) Processed new: Pledge email {}: declined: {}, discordId {}",
-                                            pledge.getPatron().getEmail(), declinedSince, discordId
-                                    );
+                                    logger.info("(!!) Processed new: Pledge email {}, discordId {}", pledge.getPatron().getEmail(), discordId);
                                 }
 
                                 if (patreonReward == null) {
@@ -92,7 +86,6 @@ public class PledgeLoader {
                                 return jedis.hdel("donators", discordId);
                             }
 
-                            //Placeholder.
                             return null;
                         });
                     }

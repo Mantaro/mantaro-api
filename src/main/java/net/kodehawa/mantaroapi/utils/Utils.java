@@ -77,13 +77,14 @@ public class Utils {
         }
 
         JSONObject obj; {
-            FileInputStream fis = new FileInputStream(config);
-            byte[] buffer = new byte[1024];
-            int read;
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            while((read = fis.read(buffer)) != -1)
-                baos.write(buffer, 0, read);
-            obj = new JSONObject(baos.toString(Charset.defaultCharset()));
+            try (FileInputStream fis = new FileInputStream(config)) {
+                byte[] buffer = new byte[1024];
+                int read;
+                ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                while((read = fis.read(buffer)) != -1)
+                    baos.write(buffer, 0, read);
+                obj = new JSONObject(baos.toString(Charset.defaultCharset()));
+            }
         }
 
         cfg.setPatreonSecret(obj.getString("patreon_secret"));

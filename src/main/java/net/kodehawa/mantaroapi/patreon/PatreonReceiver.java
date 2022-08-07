@@ -16,7 +16,6 @@
 
 package net.kodehawa.mantaroapi.patreon;
 
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import net.kodehawa.mantaroapi.utils.Config;
@@ -27,18 +26,19 @@ import org.json.JSONObject;
 import org.slf4j.Logger;
 
 import java.security.MessageDigest;
-import java.util.Iterator;
 
 import static spark.Spark.halt;
 import static spark.Spark.post;
 
 // This is painful...
 public class PatreonReceiver {
+    private static final String OK_RESPONSE = "{\"status\":\"ok\"}";
+
     public PatreonReceiver(Logger logger, Config config) {
         //Handle patreon webhooks.
         post("/mantaroapi/patreon", (req, res) -> {
-            final String body = req.body();
-            final String signature = req.headers("X-Patreon-Signature");
+            final var body = req.body();
+            final var signature = req.headers("X-Patreon-Signature");
 
             if(signature == null) {
                 logger.warn("Patreon webhook had no signature! Probably fake or invalid request.");
@@ -47,7 +47,7 @@ public class PatreonReceiver {
                 return "";
             }
 
-            final String hmac = new HmacUtils(HmacAlgorithms.HMAC_MD5, config.getPatreonSecret()).hmacHex(body);
+            final var hmac = new HmacUtils(HmacAlgorithms.HMAC_MD5, config.getPatreonSecret()).hmacHex(body);
             if(!MessageDigest.isEqual(hmac.getBytes(), signature.getBytes())) {
                 logger.warn("Patreon webhook signature was invalid! Probably fake or invalid request.");
                 halt(401);
@@ -58,26 +58,26 @@ public class PatreonReceiver {
             }
 
             // Events are pledges:{create,update,delete}
-            final String patreonEvent = req.headers("X-Patreon-Event");
-            final JsonObject json = JsonParser.parseString(body).getAsJsonObject();
+            final var patreonEvent = req.headers("X-Patreon-Event");
+            final var json = JsonParser.parseString(body).getAsJsonObject();
 
             try {
                 //what the fuck
-                final String patronId = json
+                final var patronId = json
                         .get("data").getAsJsonObject()
                         .get("relationships").getAsJsonObject()
                         .get("patron").getAsJsonObject()
                         .get("data").getAsJsonObject()
                         .get("id").getAsString();
 
-                final Iterator<JsonElement> included = json
+                final var included = json
                         .get("included").getAsJsonArray()
                         .iterator();
 
                 JsonObject patronObject = null;
                 while(included.hasNext()) {
-                    final JsonElement next = included.next();
-                    final JsonObject includedObject = next.getAsJsonObject();
+                    final var next = included.next();
+                    final var includedObject = next.getAsJsonObject();
                     if(includedObject.get("id").getAsString().equals(patronId)) {
                         patronObject = includedObject;
                         break;
@@ -85,26 +85,26 @@ public class PatreonReceiver {
                 }
 
                 if(patronObject != null) {
-                    final long pledgeAmountCents = json
+                    final var pledgeAmountCents = json
                             .get("data").getAsJsonObject()
                             .get("attributes").getAsJsonObject()
                             .get("amount_cents").getAsLong();
 
-                    final JsonObject socialConnections = patronObject
+                    final var socialConnections = patronObject
                             .get("attributes").getAsJsonObject()
                             .get("social_connections").getAsJsonObject();
 
                     // This might be discord: null if there's nothing. We can't get the JSONObject until we know it's not null
                     // else we get an exception thrown here.
-                    final JsonElement discordConnection = socialConnections.get("discord");
+                    final var discordConnection = socialConnections.get("discord");
                     if (discordConnection == null) {
                         logger.info("Received Patreon event {}, but without a Discord ID. Cannot process.", patreonEvent);
-                        return "{\"status\":\"ok\"}";
+                        return OK_RESPONSE;
                     }
 
-                    final JsonObject socialConnection = discordConnection.getAsJsonObject();
-                    final String discordUserId = socialConnection.get("user_id").getAsString();
-                    double pledgeAmountDollars = pledgeAmountCents / 100D;
+                    final var socialConnection = discordConnection.getAsJsonObject();
+                    final var discordUserId = socialConnection.get("user_id").getAsString();
+                    final double pledgeAmountDollars = pledgeAmountCents / 100D;
                     logger.info("Received Patreon event '{}' for Discord ID '{}' with amount ${}", patreonEvent,
                             discordUserId, String.format("%.2f", pledgeAmountDollars)
                     );
@@ -123,20 +123,20 @@ public class PatreonReceiver {
                             // pledge updated / created, we need to set it on both cases.
                             if (pledgeReward == null) {
                                 logger.error("Unknown reward. Can't find it?");
-                                return "{\"status\":\"ok\"}";
+                                return OK_RESPONSE;
                             }
 
                             long tier = Long.parseLong(pledgeReward);
                             // Why does this exist?
                             if (tier == 0 || tier == -1) {
                                 logger.error("Unknown tier reward for {} (tier == 0 | tier == -1)", discordUserId);
-                                return "{\"status\":\"ok\"}";
+                                return OK_RESPONSE;
                             }
 
                             var patreonReward = PatreonReward.fromId(tier);
                             if (patreonReward == null) {
                                 logger.error("Unknown reward? Can't convert to enum! {}", tier);
-                                return "{\"status\":\"ok\"}";
+                                return OK_RESPONSE;
                             }
 
                             var pledgeObject = new PatreonPledge(pledgeAmountDollars, true, patreonReward);
@@ -164,7 +164,7 @@ public class PatreonReceiver {
                 e.printStackTrace();
             }
 
-            return "{\"status\":\"ok\"}";
+            return OK_RESPONSE;
         });
     }
 }
