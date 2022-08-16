@@ -25,6 +25,7 @@ public class Config {
     private String userAgent;
     private boolean constantCheck;
     private int constantCheckDelay;
+    private String bindAddress;
 
     public String getUserAgent() {
         return userAgent;
@@ -89,4 +90,13 @@ public class Config {
     public void setConstantCheckDelay(int constantCheckDelay) {
         this.constantCheckDelay = constantCheckDelay;
     }
+
+    public String getBindAddress() {
+        return bindAddress;
+    }
+
+    public void setBindAddress(String bindAddress) {
+        this.bindAddress = bindAddress;
+    }
+
 }

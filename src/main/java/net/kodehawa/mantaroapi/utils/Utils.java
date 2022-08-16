@@ -95,6 +95,7 @@ public class Utils {
         cfg.setConstantCheckDelay(obj.getInt("constant_check_delay_days"));
         cfg.setAuth(obj.getString("auth"));
         cfg.setUserAgent(obj.getString("user_agent"));
+        cfg.setBindAddress(obj.getString("bind_address"));
 
         return cfg;
     }

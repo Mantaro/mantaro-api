@@ -93,6 +93,7 @@ public class MantaroAPI {
         readFiles();
 
         //Spark initialization.
+        ipAddress(config.getBindAddress());
         port(config.getPort());
         Spark.init();
 
