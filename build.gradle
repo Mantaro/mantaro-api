@@ -23,15 +23,15 @@ plugins {
     //Adds an Executable Manifest
     id 'application'
     //Creates FatJars
-    id 'com.github.johnrengelman.shadow' version '6.1.0'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
 }
 
 archivesBaseName = 'MantaroAPI'
 group 'kodehawa'
 def ver = new Version(major: 2, minor: 2, revision: 1)
 version ver.toString()
-sourceCompatibility = 11
-targetCompatibility = 11
+sourceCompatibility = 17
+targetCompatibility = 17
 mainClassName = "net.kodehawa.mantaroapi.MantaroAPI"
 
 def lint = [
